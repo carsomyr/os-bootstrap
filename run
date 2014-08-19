@@ -15,11 +15,13 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
+require "digest"
 require "fileutils"
 require "optparse"
 require "pathname"
 require "rake"
 require "rexml/document"
+require "shellwords"
 
 module OsX
   module Bootstrap
@@ -36,6 +38,20 @@ module OsX
               = [rbenv_root.to_s, nil, nil, nil]
 
             block.call((rbenv_root + "bin/rbenv").to_s)
+          end
+        end
+
+        # Wraps the given command in an SSH agent session and adds the given private key file to it.
+        def ssh_wrap(command, key_file = nil)
+          if command.is_a?(Array)
+            command = command.map { |arg| Shellwords.escape(arg) }.join(" ")
+          end
+
+          if key_file
+            subcommand = "ssh-add -- #{Shellwords.escape(key_file.to_s)} 2> /dev/null && #{command}"
+            "ssh-agent -- bash -c #{Shellwords.escape(subcommand)}"
+          else
+            command
           end
         end
       end
@@ -58,14 +74,45 @@ module OsX
 
       namespace :osx_bootstrap do
         prefix = opts[:prefix]
+        ssh_key_file = opts[:ssh_key_file]
         rbenv_dir = opts[:rbenv_dir]
         rbenv_version = opts[:rbenv_version]
+        repo_url = opts[:repo_url]
+        repo_branch = opts[:repo_branch]
+        repo_dir = opts[:repo_dir]
         cache_dir = prefix + "var/osx-bootstrap/cache"
+        chef_config_file = repo_dir + "config/client.rb"
+        osx_bootstrap_executable = prefix + "bin/osx-bootstrap"
+        installed_key_file = ssh_key_file && prefix + "var/osx-bootstrap/ssh" + ssh_key_file.basename
 
         desc "Checks for root privileges"
         task :check_root do
           raise "Root privileges are needed" \
             if Process.euid != 0
+        end
+
+        namespace :ssh do
+          if ssh_key_file
+            file ssh_key_file.to_s do
+              raise "No SSH private key file found at #{ssh_key_file.to_s.dump}" \
+                if !ssh_key_file.file?
+            end
+
+            directory installed_key_file.parent.to_s
+
+            file installed_key_file.to_s => [ssh_key_file.to_s, installed_key_file.parent.to_s] do
+              # Copy the private key file and secure the copy.
+              FileUtils.copy(ssh_key_file, installed_key_file)
+              FileUtils.chmod(0600, installed_key_file)
+            end
+
+            desc "Installs the SSH private key file for later use"
+            task install_key: [installed_key_file.to_s]
+          else
+            task :install_key
+          end
+
+          task install: [:install_key]
         end
 
         namespace :command_line_tools do
@@ -156,8 +203,165 @@ module OsX
             FileUtils.touch(rbenv_ruby_token)
           end
 
-          main_task = task install: [rbenv_ruby_token.to_s]
+          task install: [rbenv_ruby_token.to_s]
         end
+
+        namespace :chef do
+          bundle_executable = rbenv_dir + "shims/bundle"
+          chef_client_executable = rbenv_dir + "shims/chef-client"
+          gemfile_lock = repo_dir + "Gemfile.lock"
+          gemfile_token = cache_dir + ".Gemfile.lock"
+          cheffile_lock = repo_dir + "Cheffile.lock"
+          cheffile_token = cache_dir + ".Cheffile.lock"
+
+          desc "Clones the user's Chef repository into #{repo_dir.to_s.dump}"
+          directory repo_dir.to_s => [:check_root, "ssh:install", "command_line_tools:install"] do
+            git_command = ssh_wrap(
+                ["git", "clone", "-b", repo_branch, "--", repo_url, repo_dir.to_s],
+                installed_key_file
+            )
+
+            # Isolate the command in an SSH agent process to ensure authentication success.
+            sh git_command
+          end
+
+          desc "Checks that the Chef client configuration file exists"
+          file chef_config_file.to_s => [repo_dir.to_s] do
+            raise "Please provide a Chef client configuration file located at #{chef_config_file.to_s.dump}" \
+              if !chef_config_file.exist?
+          end
+
+          file bundle_executable.to_s => [:gem_install]
+          file chef_client_executable.to_s => [:gem_install]
+
+          desc "Runs `gem install` with the default rbenv Ruby"
+          task gem_install: [:check_root, "rbenv:install"] do
+            next \
+              if bundle_executable.executable? && chef_client_executable.executable?
+
+            # Change the directory to avoid picking up any stray `.ruby-version` files.
+            Dir.chdir(Pathname.new("/")) do
+              rbenv(rbenv_dir) do |rbenv|
+                sh rbenv, "exec", "gem", "install", "--no-document", "bundler", "chef"
+                sh rbenv, "rehash"
+              end
+            end
+          end
+
+          directory gemfile_token.parent.to_s
+
+          desc "Checks that the `Gemfile.lock` exists"
+          file gemfile_lock.to_s => [repo_dir.to_s, gemfile_token.parent.to_s] do
+            raise "Please provide a `Gemfile.lock` located at #{gemfile_lock.to_s.dump}" \
+              if !gemfile_lock.exist?
+          end
+
+          desc "Runs `bundle install` in the Chef repository"
+          file gemfile_token.to_s => [bundle_executable.to_s, gemfile_lock.to_s] do
+            Dir.chdir(repo_dir) do
+              rbenv(rbenv_dir) do |rbenv|
+                sh rbenv, "exec", "bundle", "install"
+              end
+            end
+
+            FileUtils.touch(gemfile_token)
+          end
+
+          directory cheffile_token.parent.to_s
+
+          desc "Checks that the `Cheffile.lock` exists"
+          file cheffile_lock.to_s => [repo_dir.to_s, cheffile_token.parent.to_s] do
+            raise "Please provide a `Cheffile.lock` located at #{cheffile_lock.to_s.dump}" \
+              if !cheffile_lock.exist?
+          end
+
+          desc "Runs `librarian-chef install` in the Chef repository"
+          file cheffile_token.to_s => [bundle_executable.to_s, cheffile_lock.to_s, gemfile_token.to_s] do
+            Dir.chdir(repo_dir) do
+              rbenv(rbenv_dir) do |rbenv|
+                sh rbenv, "exec", "bundle", "exec", "librarian-chef", "install"
+              end
+            end
+
+            FileUtils.touch(cheffile_token)
+          end
+
+          task install: [chef_client_executable.to_s, chef_config_file.to_s, gemfile_token.to_s, cheffile_token.to_s]
+        end
+
+        directory osx_bootstrap_executable.parent.to_s
+
+        desc "Writes an executable to #{osx_bootstrap_executable.to_s.dump}"
+        file osx_bootstrap_executable.to_s => [:check_root, "ssh:install", "rbenv:install", "chef:install",
+                                               osx_bootstrap_executable.parent.to_s] do
+          rbenv_executable = rbenv_dir + "bin/rbenv"
+
+          # Isolate these commands in an SSH agent process to ensure authentication success.
+          git_command = ssh_wrap(["git", "fetch", "-q"], installed_key_file)
+          bundle_command = ssh_wrap(
+              [rbenv_executable.to_s, "exec", "bundle", "install"],
+              installed_key_file
+          )
+          librarian_chef_command = ssh_wrap(
+              [rbenv_executable.to_s, "exec", "bundle", "exec", "librarian-chef", "install"],
+              installed_key_file
+          )
+
+          osx_bootstrap_executable.open("wb") do |f|
+            f.write(<<EOS
+#!/usr/bin/env bash
+#
+# This script was auto-generated by OS X Bootstrap.
+
+# Bail on any errors.
+set -e
+
+if (( $EUID != 0 )); then
+    echo "This script requires root privileges to run" >&2
+    exit -- 1
+fi
+
+export -- RBENV_ROOT=#{Shellwords.escape(rbenv_dir.to_s)}
+
+# Take no chances and regenerate the `PATH` environment variable.
+eval -- "$(PATH="" /usr/libexec/path_helper)"
+PATH=#{Shellwords.escape((rbenv_dir + "bin").to_s)}"${PATH:+":${PATH}"}"
+PATH=#{Shellwords.escape((rbenv_dir + "shims").to_s)}"${PATH:+":${PATH}"}"
+
+# Ensure that SSH authentication works off of the given private key *only*.
+unset -- SSH_AUTH_SOCK
+
+cd -- #{Shellwords.escape(repo_dir.to_s)}
+
+sha1_old=$(git rev-parse --verify HEAD)
+#{git_command}
+sha1_new=$(git rev-parse --verify "HEAD@{upstream}")
+
+# Compare the old and new SHA-1 hashes and only take action if they are different.
+if [[ "$sha1_old" != "$sha1_new" ]]; then
+    # Hard reset to the latest commit.
+    git reset -q --hard "$sha1_new"
+
+    if [[ -f "Gemfile" ]]; then
+        #{bundle_command}
+
+        if [[ -f "Cheffile" ]]; then
+            #{librarian_chef_command}
+        fi
+    fi
+fi
+
+# Run the Chef client in local mode (`-z`) and point it to the repository's configuration file (by convention).
+exec -- #{Shellwords.escape(rbenv_executable.to_s)} exec chef-client -z -c #{Shellwords.escape(chef_config_file.to_s)}
+EOS
+            )
+          end
+
+          # Assign executable bits.
+          FileUtils.chmod("+x", osx_bootstrap_executable)
+        end
+
+        main_task = task install: [osx_bootstrap_executable.to_s]
       end
 
       main_task
@@ -170,10 +374,13 @@ if __FILE__ == $0
       prefix: Pathname.new("/usr/local"),
       rbenv_dir: Pathname.new("/opt/rbenv"),
       rbenv_version: "2.1.2",
+      repo_url: "https://github.com/carsomyr/osx-bootstrap",
+      repo_branch: "master",
+      ssh_key_file: nil,
       verbose: false
   }
 
-  OptionParser.new do |opt_spec|
+  positional_args = OptionParser.new do |opt_spec|
     opt_spec.banner = "usage: #{Pathname.new(__FILE__).basename} [<options>] [[--] <dir>...]"
 
     opt_spec.separator ""
@@ -191,15 +398,50 @@ if __FILE__ == $0
       opts[:rbenv_version] = rbenv_version
     end
 
+    opt_spec.on("-b", "--branch BRANCH", "specify the Chef repository branch to checkout") do |repo_branch|
+      opts[:repo_branch] = repo_branch
+    end
+
+    opt_spec.on("-k", "--ssh-key SSH_KEY", "provide an SSH private key") do |ssh_key_file|
+      opts[:ssh_key_file] = Pathname.new(ssh_key_file)
+    end
+
     opt_spec.on("-v", "--verbose", "be verbose") do
       opts[:verbose] = true
     end
   end.parse(ARGV)
 
+  case positional_args.size
+    when 1
+      opts[:repo_url] = positional_args.first
+    when 0
+      # Use default values.
+    else
+      raise "Please specify exactly one Git repository"
+  end
+
   # Mix in our helpers.
   class << self
     include OsX::Bootstrap::RakeHelpers
   end
+
+  prefix = opts[:prefix]
+  config_dir = opts[:config_dir]
+  ssh_key_file = opts[:ssh_key_file]
+  repo_url = opts[:repo_url]
+
+  if !ssh_key_file
+    ssh_key_file = Pathname.glob("#{config_dir.to_s}/ssh/id_{rsa,dsa,ecdsa}").first
+    opts[:ssh_key_file] = ssh_key_file
+  end
+
+  repo_basename_pattern = Regexp.new("\\A.+[/:](.+)\\z")
+  m = repo_basename_pattern.match(repo_url)
+
+  raise "Invalid Git repository URL #{repo_url.dump}" \
+    if !m
+
+  opts[:repo_dir] = prefix + "var/osx-bootstrap/git/#{m[1]}-#{Digest::SHA1.hexdigest(repo_url)[0...7]}"
 
   instance_exec(opts, &OsX::Bootstrap.define_rake_tasks).invoke
 end
