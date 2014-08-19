@@ -1,5 +1,6 @@
 /.ruby-version
 /.bundle/
+/.chef/
 /.idea/
 /.librarian/tmp/chef/
 /cookbooks/
