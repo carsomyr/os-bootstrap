@@ -15,11 +15,161 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
+require "fileutils"
 require "optparse"
 require "pathname"
+require "rake"
+require "rexml/document"
+
+module OsX
+  module Bootstrap
+    # Some helpers to reduce boilerplate in Rake tasks.
+    module RakeHelpers
+      module InstanceMethods
+        # Sets up a special environment for rbenv to run in.
+        def rbenv(rbenv_root, &block)
+          # Set special values for certain rbenv environment variables, run the given block, and restore them
+          # afterwards.
+          ENV["RBENV_ROOT"], ENV["RBENV_DIR"], ENV["RBENV_HOOK_PATH"], ENV["RBENV_VERSION"] \
+            = [ENV["RBENV_ROOT"], ENV["RBENV_DIR"], ENV["RBENV_HOOK_PATH"], ENV["RBENV_VERSION"]].tap do
+            ENV["RBENV_ROOT"], ENV["RBENV_DIR"], ENV["RBENV_HOOK_PATH"], ENV["RBENV_VERSION"] \
+              = [rbenv_root.to_s, nil, nil, nil]
+
+            block.call((rbenv_root + "bin/rbenv").to_s)
+          end
+        end
+      end
+
+      def self.included(klass)
+        Rake::Application.class_eval do
+          attr_accessor :formatters
+        end
+
+        klass.send(:include, InstanceMethods)
+      end
+    end
+
+    class << self
+      attr_reader :define_rake_tasks
+    end
+
+    @define_rake_tasks = Proc.new do |opts|
+      main_task = nil
+
+      namespace :osx_bootstrap do
+        prefix = opts[:prefix]
+        rbenv_dir = opts[:rbenv_dir]
+        rbenv_version = opts[:rbenv_version]
+        cache_dir = prefix + "var/osx-bootstrap/cache"
+
+        desc "Checks for root privileges"
+        task :check_root do
+          raise "Root privileges are needed" \
+            if Process.euid != 0
+        end
+
+        namespace :command_line_tools do
+          magic_temp_file = Pathname.new("/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress")
+          clt_bom = Pathname.new("/var/db/receipts/com.apple.pkg.CLTools_Executables.bom")
+          clt_plist = Pathname.new("/var/db/receipts/com.apple.pkg.CLTools_Executables.plist")
+
+          # See `http://macops.ca/installing-command-line-tools-automatically-on-mavericks/`.
+          desc "Ensures that the magic file for faking an on-demand installation is in place"
+          file magic_temp_file.to_s do
+            FileUtils.touch(magic_temp_file)
+          end
+
+          file clt_bom.to_s => [:softwareupdate_install]
+          file clt_plist.to_s => [:softwareupdate_install]
+
+          desc "Installs the command-line tools package via the `softwareupdate` tool"
+          task softwareupdate_install: [:check_root, magic_temp_file.to_s] do
+            next \
+              if clt_bom.file? && clt_plist.file?
+
+            sh "softwareupdate", "-l"
+
+            # After `softwareupdate` has run, look in the plist of recommended updates. Some sort of command-line tools
+            # package should be there.
+
+            xml = IO.popen(["plutil", "-convert", "xml1", "-o", "-", "--",
+                            "/Library/Preferences/com.apple.SoftwareUpdate.plist"]) do |io|
+              io.read
+            end
+
+            exit_status = $?.exitstatus
+
+            raise "`plutil` returned nonzero exit status #{exit_status}" \
+              if exit_status != 0
+
+            # Create an XPath query for the package information.
+            doc = REXML::Document.new(xml)
+            node = doc.elements["/plist" \
+                "/dict" \
+                "/key[text()=\"RecommendedUpdates\"]" \
+                "/following::array[position()=1]" \
+                "/dict[key[text()=\"Display Name\"]" \
+                "/following::string[position()=1 and starts-with(text(), \"Command Line \")]]"
+            ]
+
+            raise "Could not find the necessary metadata for installing the command-line tools package" \
+              if !node
+
+            identifier = node.elements["key[text()=\"Identifier\"]/following::string[position()=1]/text()"]
+            display_version = node.elements["key[text()=\"Display Version\"]/following::string[position()=1]/text()"]
+
+            sh "softwareupdate", "-v", "-i", "#{identifier}-#{display_version}"
+          end
+
+          task cleanup: [:softwareupdate_install, magic_temp_file.to_s] do
+            magic_temp_file.delete
+          end
+
+          task install: [:cleanup, clt_bom.to_s, clt_plist.to_s]
+        end
+
+        namespace :rbenv do
+          ruby_build_dir = (rbenv_dir + "plugins/ruby-build")
+          rbenv_ruby_token = cache_dir + ".rbenv-ruby-#{rbenv_version}"
+
+          desc "Clones the rbenv repository into #{rbenv_dir.to_s.dump}"
+          directory rbenv_dir.to_s => [:check_root, "command_line_tools:install"] do
+            sh "git", "clone", "--", "https://github.com/sstephenson/rbenv", rbenv_dir.to_s
+          end
+
+          desc "Clones the ruby-build repository into #{ruby_build_dir.to_s.dump}"
+          directory ruby_build_dir.to_s => [:check_root, "command_line_tools:install"] do
+            sh "git", "clone", "--", "https://github.com/sstephenson/ruby-build", ruby_build_dir.to_s
+          end
+
+          directory rbenv_ruby_token.parent.to_s
+
+          desc "Installs the default rbenv Ruby"
+          file rbenv_ruby_token.to_s => [rbenv_dir.to_s, ruby_build_dir.to_s, rbenv_ruby_token.parent.to_s] do
+            rbenv(rbenv_dir) do |rbenv|
+              sh rbenv, "install", rbenv_version
+            end
+
+            # Set the default rbenv Ruby version.
+            (rbenv_dir + "version").open("wb") { |f| f.write("#{rbenv_version}\n") }
+
+            FileUtils.touch(rbenv_ruby_token)
+          end
+
+          main_task = task install: [rbenv_ruby_token.to_s]
+        end
+      end
+
+      main_task
+    end
+  end
+end
 
 if __FILE__ == $0
   opts = {
+      prefix: Pathname.new("/usr/local"),
+      rbenv_dir: Pathname.new("/opt/rbenv"),
+      rbenv_version: "2.1.2",
       verbose: false
   }
 
@@ -29,8 +179,27 @@ if __FILE__ == $0
     opt_spec.separator ""
     opt_spec.separator "optional arguments:"
 
+    opt_spec.on("--prefix PREFIX", "specify the installation prefix") do |prefix|
+      opts[:prefix] = Pathname.new(prefix)
+    end
+
+    opt_spec.on("--rbenv-dir RBENV_DIR", "specify the rbenv installation directory") do |rbenv_dir|
+      opts[:rbenv_dir] = Pathname.new(rbenv_dir)
+    end
+
+    opt_spec.on("--rbenv-version RBENV_VERSION", "specify the default rbenv Ruby version") do |rbenv_version|
+      opts[:rbenv_version] = rbenv_version
+    end
+
     opt_spec.on("-v", "--verbose", "be verbose") do
       opts[:verbose] = true
     end
   end.parse(ARGV)
+
+  # Mix in our helpers.
+  class << self
+    include OsX::Bootstrap::RakeHelpers
+  end
+
+  instance_exec(opts, &OsX::Bootstrap.define_rake_tasks).invoke
 end
