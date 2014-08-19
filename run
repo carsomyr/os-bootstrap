@@ -14,3 +14,23 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations under
 # the License.
+
+require "optparse"
+require "pathname"
+
+if __FILE__ == $0
+  opts = {
+      verbose: false
+  }
+
+  OptionParser.new do |opt_spec|
+    opt_spec.banner = "usage: #{Pathname.new(__FILE__).basename} [<options>] [[--] <dir>...]"
+
+    opt_spec.separator ""
+    opt_spec.separator "optional arguments:"
+
+    opt_spec.on("-v", "--verbose", "be verbose") do
+      opts[:verbose] = true
+    end
+  end.parse(ARGV)
+end
