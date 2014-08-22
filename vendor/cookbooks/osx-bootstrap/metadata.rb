@@ -14,7 +14,14 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-site "https://supermarket.getchef.com/api/v1"
+name "osx-bootstrap"
+maintainer "Roy Liu"
+maintainer_email "carsomyr@gmail.com"
+license "Apache-2.0"
+description "An opinionated take on the kinds of configuration you'll be doing with Chef on OS X"
+long_description "An opinionated take on the kinds of configuration you'll be doing with Chef on OS X. We encourage" \
+  " users to customize this cookbook for their own needs."
+version "0.9.0"
 
-cookbook "osx-bootstrap",
-         path: "vendor/cookbooks/osx-bootstrap"
+supports "mac_os_x"
+supports "mac_os_x_server"

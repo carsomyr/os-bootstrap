@@ -1,2 +1,8 @@
+PATH
+  remote: vendor/cookbooks/osx-bootstrap
+  specs:
+    osx-bootstrap (0.9.0)
+
 DEPENDENCIES
+  osx-bootstrap (>= 0)
 
