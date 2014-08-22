@@ -1,3 +1,6 @@
 {
   "name": "workstation",
+  "run_list": [
+    "recipe[osx-bootstrap::homebrew]"
+  ]
 }

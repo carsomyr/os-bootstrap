@@ -14,16 +14,4 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-name "osx-bootstrap"
-maintainer "Roy Liu"
-maintainer_email "carsomyr@gmail.com"
-license "Apache-2.0"
-description "An opinionated take on the kinds of configuration you'll be doing with Chef on OS X"
-long_description "An opinionated take on the kinds of configuration you'll be doing with Chef on OS X. We encourage" \
-  " users to customize this cookbook for their own needs."
-version "0.9.0"
-
-supports "mac_os_x"
-supports "mac_os_x_server"
-
-depends "homebrew"
+default["osx-bootstrap"]["homebrew"]["caskroom_path"] = "/opt/homebrew-cask/Caskroom"
