@@ -1,0 +1,26 @@
+#  ____________________________________
+# / This file is managed by Chef. Your \
+# \ changes will be overwritten.       /
+#  ------------------------------------
+#         \   ^__^
+#          \  (oo)\_______
+#             (__)\       )\/\
+#                 ||----w |
+#                 ||     ||
+
+# GitHub
+
+Host github.com github
+    HostName github.com
+    User git
+    # Force SSH to offer our personal key instead of another potentially valid
+    # one held by `ssh-agent`.
+    IdentitiesOnly yes
+
+# Any host
+
+Host *
+    CheckHostIP no
+    GlobalKnownHostsFile ~/.ssh/global_known_hosts
+    HashKnownHosts no
+    NoHostAuthenticationForLocalhost no
