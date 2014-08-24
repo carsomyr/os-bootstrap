@@ -1,0 +1,81 @@
+#  ____________________________________
+# / This file is managed by Chef. Your \
+# \ changes will be overwritten.       /
+#  ------------------------------------
+#         \   ^__^
+#          \  (oo)\_______
+#             (__)\       )\/\
+#                 ||----w |
+#                 ||     ||
+
+if [[ -n "$_bashrc" ]] || [[ -z "$PS1" ]]; then
+    return -- 0
+fi
+
+# Don't put duplicate lines and commands with leading spaces in the history.
+export -- HISTCONTROL="ignoredups:ignorespace"
+
+# Allow the history to grow extra long.
+export -- HISTSIZE="5000"
+
+# Store the timestamp associated with each history entry so that it may be formatted for display later.
+export -- HISTTIMEFORMAT="%F %T "
+
+# Set a fancy prompt (non-color, unless we know we "want" color).
+case "$TERM" in
+    xterm*|screen)
+        PS1="\\[\\e[01;32m\\]\\u@\\h\\[\\e[00m\\]:\\[\\e[01;34m\\]\\w\\[\\e[00m\\]\\\$ "
+        ;;
+
+    *)
+        PS1="\\u@\\h:\\w\\\$ "
+        ;;
+esac
+
+# Set the title to "user@host:dir".
+case "$TERM" in
+    xterm*)
+        PS1="\\[\\e]0;\\u@\\h: \\w\\a\\]${PS1}"
+        ;;
+
+    screen)
+        PS1="\\[\\ek\\e\\\\\\e]0;\\u@\\h: \\w\\a\\]${PS1}"
+        ;;
+
+    *)
+        ;;
+esac
+
+alias -- grep="grep --color=auto"
+alias -- egrep="egrep --color=auto"
+alias -- fgrep="fgrep --color=auto"
+
+# Set the environment variable providing additional options to `less`.
+export -- LESS="--tabs 4"
+
+# Add color to various commands.
+export -- CLICOLOR="1"
+
+# Use this pager for commands like `git`, `mail`, and `man`.
+export -- PAGER="less -+\"\$LESS\" -FRX"
+
+# Make `less` smarter.
+eval -- "$(lesspipe.sh)"
+
+# Install Bash completions.
+source -- <%= Shellwords.escape((prefix + "etc/bash_completion").to_s) %>
+
+# Source files from `~/.profile.d`.
+
+shopt -s -- nullglob && _files=(${HOME}/.profile.d/*); shopt -u -- nullglob
+
+for _file in "${_files[@]}"; do
+    _bashrc="1" && source -- "$_file"; unset -- _bashrc
+done
+
+# Source `~/.bash_profile` if available.
+if [[ -f "${HOME}/.bash_profile" ]]; then
+    _bashrc="1" && source -- "${HOME}/.bash_profile"; unset -- _bashrc
+fi
+
+unset -- _file _files

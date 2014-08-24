@@ -2,6 +2,7 @@
   "name": "workstation",
   "run_list": [
     "recipe[osx-bootstrap::homebrew]",
-    "recipe[osx-bootstrap::ssh]"
+    "recipe[osx-bootstrap::ssh]",
+    "recipe[osx-bootstrap::bash]"
   ]
 }

@@ -1,0 +1,18 @@
+#  ____________________________________
+# / This file is managed by Chef. Your \
+# \ changes will be overwritten.       /
+#  ------------------------------------
+#         \   ^__^
+#          \  (oo)\_______
+#             (__)\       )\/\
+#                 ||----w |
+#                 ||     ||
+
+if [[ -n "$_bash_profile" ]] || [[ -z "$PS1" ]]; then
+    return -- 0
+fi
+
+# Source `~/.bashrc` if available.
+if [[ -f "${HOME}/.bashrc" ]]; then
+    _bash_profile="1" && source -- "${HOME}/.bashrc"; unset -- _bash_profile
+fi
