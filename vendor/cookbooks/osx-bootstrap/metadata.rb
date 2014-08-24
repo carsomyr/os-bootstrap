@@ -27,3 +27,4 @@ supports "mac_os_x"
 supports "mac_os_x_server"
 
 depends "homebrew"
+depends "plist"

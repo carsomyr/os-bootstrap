@@ -3,12 +3,22 @@ SITE
   specs:
     homebrew (1.9.0)
 
+GIT
+  remote: https://github.com/carsomyr/chef-plist
+  path: vendor/cookbooks/plist
+  ref: master
+  sha: e5f06a645f3acf1a2a863a544759c07a7dc5e622
+  specs:
+    plist (0.9.0)
+
 PATH
   remote: vendor/cookbooks/osx-bootstrap
   specs:
     osx-bootstrap (0.9.0)
       homebrew (>= 0.0.0)
+      plist (>= 0.0.0)
 
 DEPENDENCIES
   osx-bootstrap (>= 0)
+  plist (>= 0)
 
