@@ -17,11 +17,13 @@
 
 require "digest"
 require "fileutils"
+require "json"
 require "optparse"
 require "pathname"
 require "rake"
 require "rexml/document"
 require "shellwords"
+require "yaml"
 
 module OsX
   module Bootstrap
@@ -75,6 +77,7 @@ module OsX
       namespace :osx_bootstrap do
         prefix = opts[:prefix]
         ssh_key_file = opts[:ssh_key_file]
+        chef_attributes_file = opts[:chef_attributes_file]
         rbenv_dir = opts[:rbenv_dir]
         rbenv_version = opts[:rbenv_version]
         repo_url = opts[:repo_url]
@@ -214,6 +217,27 @@ module OsX
           cheffile_lock = repo_dir + "Cheffile.lock"
           cheffile_token = cache_dir + ".Cheffile.lock"
 
+          if chef_attributes_file
+            installed_attributes_file = prefix + "var/osx-bootstrap/chef/attributes.json"
+
+            file chef_attributes_file.to_s do
+              raise "No Chef attributes file found at #{chef_attributes_file.to_s.dump}" \
+                if !chef_attributes_file.file?
+            end
+
+            directory installed_attributes_file.parent.to_s
+
+            file installed_attributes_file.to_s => [chef_attributes_file.to_s, installed_attributes_file.parent.to_s] do
+              h = YAML.load(chef_attributes_file.open("rb") { |f| f.read })
+              installed_attributes_file.open("wb") { |f| f.write(JSON.generate(h)) }
+            end
+
+            desc "Installs the Chef attributes file for later use"
+            task install_attributes: [installed_attributes_file.to_s]
+          else
+            task :install_attributes
+          end
+
           desc "Clones the user's Chef repository into #{repo_dir.to_s.dump}"
           directory repo_dir.to_s => [:check_root, "ssh:install", "command_line_tools:install"] do
             git_command = ssh_wrap(
@@ -286,7 +310,9 @@ module OsX
             FileUtils.touch(cheffile_token)
           end
 
-          task install: [chef_client_executable.to_s, chef_config_file.to_s, gemfile_token.to_s, cheffile_token.to_s]
+          task install: [:install_attributes,
+                         chef_client_executable.to_s, chef_config_file.to_s,
+                         gemfile_token.to_s, cheffile_token.to_s]
         end
 
         directory osx_bootstrap_executable.parent.to_s
@@ -306,6 +332,18 @@ module OsX
               [rbenv_executable.to_s, "exec", "bundle", "exec", "librarian-chef", "install"],
               installed_key_file
           )
+
+          lines = []
+          lines.push(["chef-client", "-z"])
+          lines.push(["-c", chef_config_file.to_s])
+          lines.push(["-j", (prefix + "var/osx-bootstrap/chef/attributes.json").to_s]) \
+            if chef_attributes_file
+
+          chef_client_command = lines.map do |args|
+            args.map do |arg|
+              Shellwords.escape(arg)
+            end.join(" ")
+          end.join(" \\\n    ")
 
           osx_bootstrap_executable.open("wb") do |f|
             f.write(<<EOS
@@ -352,7 +390,7 @@ if [[ "$sha1_old" != "$sha1_new" ]]; then
 fi
 
 # Run the Chef client in local mode (`-z`) and point it to the repository's configuration file (by convention).
-exec -- #{Shellwords.escape(rbenv_executable.to_s)} exec chef-client -z -c #{Shellwords.escape(chef_config_file.to_s)}
+exec -- #{Shellwords.escape(rbenv_executable.to_s)} exec #{chef_client_command}
 EOS
             )
           end
@@ -372,11 +410,13 @@ end
 if __FILE__ == $0
   opts = {
       prefix: Pathname.new("/usr/local"),
+      config_dir: Pathname.new("/Volumes/OS X Bootstrap"),
       rbenv_dir: Pathname.new("/opt/rbenv"),
       rbenv_version: "2.1.2",
       repo_url: "https://github.com/carsomyr/osx-bootstrap",
       repo_branch: "master",
       ssh_key_file: nil,
+      chef_attributes_file: nil,
       verbose: false
   }
 
@@ -388,6 +428,10 @@ if __FILE__ == $0
 
     opt_spec.on("--prefix PREFIX", "specify the installation prefix") do |prefix|
       opts[:prefix] = Pathname.new(prefix)
+    end
+
+    opt_spec.on("--config-dir CONFIG_DIR", "specify the configuration directory") do |config_dir|
+      opts[:config_dir] = Pathname.new(config_dir)
     end
 
     opt_spec.on("--rbenv-dir RBENV_DIR", "specify the rbenv installation directory") do |rbenv_dir|
@@ -404,6 +448,11 @@ if __FILE__ == $0
 
     opt_spec.on("-k", "--ssh-key SSH_KEY", "provide an SSH private key") do |ssh_key_file|
       opts[:ssh_key_file] = Pathname.new(ssh_key_file)
+    end
+
+    opt_spec.on("-c", "--chef-attributes CHEF_ATTRIBUTES", "provide a `chef-client` attributes file in" \
+                " YAML") do |chef_attributes_file|
+      opts[:chef_attributes_file] = Pathname.new(chef_attributes_file)
     end
 
     opt_spec.on("-v", "--verbose", "be verbose") do
@@ -428,11 +477,19 @@ if __FILE__ == $0
   prefix = opts[:prefix]
   config_dir = opts[:config_dir]
   ssh_key_file = opts[:ssh_key_file]
+  chef_attributes_file = opts[:chef_attributes_file]
   repo_url = opts[:repo_url]
 
   if !ssh_key_file
     ssh_key_file = Pathname.glob("#{config_dir.to_s}/ssh/id_{rsa,dsa,ecdsa}").first
     opts[:ssh_key_file] = ssh_key_file
+  end
+
+  default_attributes_file = config_dir + "chef/_attributes.yml"
+
+  if !chef_attributes_file && default_attributes_file.file?
+    chef_attributes_file = default_attributes_file
+    opts[:chef_attributes_file] = chef_attributes_file
   end
 
   repo_basename_pattern = Regexp.new("\\A.+[/:](.+)\\z")
