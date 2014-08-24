@@ -42,6 +42,10 @@ module ::OsX
         @user_email ||= node["osx-bootstrap"]["user"]["email"] \
           || "#{owner}@#{Socket.gethostname}"
       end
+
+      def recipe_full_name
+        "#{cookbook_name}::#{recipe_name}"
+      end
     end
 
     def self.included(clazz)

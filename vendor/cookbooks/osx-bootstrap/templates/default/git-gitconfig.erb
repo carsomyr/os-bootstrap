@@ -1,0 +1,29 @@
+#  ____________________________________
+# / This file is managed by Chef. Your \
+# \ changes will be overwritten.       /
+#  ------------------------------------
+#         \   ^__^
+#          \  (oo)\_______
+#             (__)\       )\/\
+#                 ||----w |
+#                 ||     ||
+
+[user]
+    name = <%= user_full_name.dump %>
+    email = <%= user_email.dump %>
+
+[alias]
+    ci = commit
+    co = checkout
+    ls = ls-files
+    rs = reset
+    st = status -s
+
+[color]
+    ui = true
+
+[diff]
+    renames = copies
+
+[push]
+    default = upstream

@@ -3,6 +3,7 @@
   "run_list": [
     "recipe[osx-bootstrap::homebrew]",
     "recipe[osx-bootstrap::ssh]",
+    "recipe[osx-bootstrap::git]",
     "recipe[osx-bootstrap::bash]"
   ]
 }
