@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- This file is managed by Chef. Your changes will be overwritten. -->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>homebrew.gnupg2.gpg-agent</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string><%= script_file.to_s.encode(xml: :text) -%></string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+</dict>
+</plist>

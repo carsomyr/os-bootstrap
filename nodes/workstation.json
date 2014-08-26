@@ -5,6 +5,7 @@
     "recipe[osx-bootstrap::ssh]",
     "recipe[osx-bootstrap::git]",
     "recipe[osx-bootstrap::bash]",
+    "recipe[osx-bootstrap::gnupg2]",
     "recipe[osx-bootstrap::preferences]"
   ]
 }

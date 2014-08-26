@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+#
+#  ____________________________________
+# / This file is managed by Chef. Your \
+# \ changes will be overwritten.       /
+#  ------------------------------------
+#         \   ^__^
+#          \  (oo)\_______
+#             (__)\       )\/\
+#                 ||----w |
+#                 ||     ||
+
+if [[ -n "$_bashrc" ]] || [[ -n "$PS1" ]]; then
+    export -- GPG_TTY=$(tty)
+
+    # Are we running as a Bash hook? Source the contents of `~/.gpg-agent-info` to get agent socket information.
+    if [[ -r "${HOME}/.gpg-agent-info" ]]; then
+        export -- GPG_AGENT_INFO
+        source -- "${HOME}/.gpg-agent-info"
+    fi
+else
+    eval -- "$(PATH="" /usr/libexec/path_helper)"
+
+    # Are we running in `launchd`? Try to start a daemonized `gpg-agent`.
+    if { ! gpg-agent 2> /dev/null; }; then
+        eval -- "$(gpg-agent --daemon --write-env-file --use-standard-socket)"
+
+        # Install an exit handler for killing the agent.
+        trap -- "{ gpg-connect-agent -- killagent /bye; }" EXIT
+
+        # Wait forever on a bogus path.
+        wait4path ""
+    fi
+fi

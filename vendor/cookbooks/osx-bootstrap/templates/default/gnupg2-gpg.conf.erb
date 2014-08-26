@@ -1,0 +1,31 @@
+#  ____________________________________
+# / This file is managed by Chef. Your \
+# \ changes will be overwritten.       /
+#  ------------------------------------
+#         \   ^__^
+#          \  (oo)\_______
+#             (__)\       )\/\
+#                 ||----w |
+#                 ||     ||
+
+default-recipient-self
+
+compress-level                  9
+bzip2-compress-level            9
+
+keyserver                       hkp://pgp.mit.edu
+keyserver-options               auto-key-retrieve
+
+use-agent
+
+no-greeting
+
+force-mdc
+
+personal-cipher-preferences     AES256
+personal-digest-preferences     SHA512
+personal-compress-preferences   ZLIB
+
+cert-digest-algo                SHA512
+
+default-preference-list         AES256 SHA512 ZLIB BZIP2 Uncompressed
