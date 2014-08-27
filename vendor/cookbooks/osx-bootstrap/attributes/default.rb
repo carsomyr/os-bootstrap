@@ -16,5 +16,6 @@
 
 default["osx-bootstrap"]["owner"] = nil
 default["osx-bootstrap"]["prefix"] = "/usr/local"
+default["osx-bootstrap"]["user"]["editor"] = "emacs"
 default["osx-bootstrap"]["user"]["email"] = nil
 default["osx-bootstrap"]["user"]["full_name"] = nil

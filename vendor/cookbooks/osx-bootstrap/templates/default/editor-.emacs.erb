@@ -1,0 +1,43 @@
+;;  ____________________________________
+;; / This file is managed by Chef. Your \
+;; \ changes will be overwritten.       /
+;;  ------------------------------------
+;;         \   ^__^
+;;          \  (oo)\_______
+;;             (__)\       )\/\
+;;                 ||----w |
+;;                 ||     ||
+
+(setq
+ ;; Disable autosave.
+ auto-save-default nil
+ ;; Disable backup.
+ backup-inhibited t
+ ;; Show the current column number.
+ column-number-mode t
+ ;; Disable the splash screen.
+ inhibit-startup-screen t
+ ;; Set the tab stops.
+ tab-stop-list '(4 8 12 16 20 24 28 32 36 40
+                   44 48 52 56 60 64 68 72 76 80
+                   84 88 92 96 100 104 108 112 116 120)
+ ;; Set programming language editing preferences.
+ c-basic-offset 4
+ nxml-child-indent 4
+ sgml-basic-offset 4
+ sh-basic-offset 4
+ sh-indent-comment t)
+
+(setq-default
+ ;; Use spaces instead of tabs.
+ indent-tabs-mode nil
+ ;; Show trailing whitespace.
+ show-trailing-whitespace t
+ ;; Set the tab width in characters.
+ tab-width 4)
+
+;; Show matched parentheses.
+(show-paren-mode t)
+
+;; Move between windows easily.
+(windmove-default-keybindings)
