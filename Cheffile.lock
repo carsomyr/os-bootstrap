@@ -7,7 +7,7 @@ GIT
   remote: https://github.com/carsomyr/chef-plist
   path: vendor/cookbooks/plist
   ref: master
-  sha: e5f06a645f3acf1a2a863a544759c07a7dc5e622
+  sha: a104a6fdc421e259bda463eada24ddcc8ddb9827
   specs:
     plist (0.9.0)
 

@@ -1,0 +1,43 @@
+# -*- coding: utf-8 -*-
+#  ____________________________________
+# / This file is managed by Chef. Your \
+# \ changes will be overwritten.       /
+#  ------------------------------------
+#         \   ^__^
+#          \  (oo)\_______
+#             (__)\       )\/\
+#                 ||----w |
+#                 ||     ||
+
+require "pathname"
+
+class Xcode < Cask
+  find_app_dir = Proc.new do
+    Pathname.glob("#{@cask.destination_path.to_s}/Xcode*.app").first
+  end
+
+  version "latest"
+  sha256 :no_check
+
+  url <%= xcode_url.dump %>
+
+  after_install do
+    xcode_app_dir = instance_exec(&find_app_dir)
+
+    next \
+      if !xcode_app_dir
+
+    Cask.appdir.mkpath
+
+    FileUtils.symlink(xcode_app_dir, Cask.appdir + xcode_app_dir.basename)
+  end
+
+  before_uninstall do
+    xcode_app_dir = instance_exec(&find_app_dir)
+
+    next \
+      if !xcode_app_dir
+
+    FileUtils.rm(Cask.appdir + xcode_app_dir.basename)
+  end
+end
