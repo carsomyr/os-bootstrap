@@ -14,4 +14,10 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
+include_recipe "osx-bootstrap::homebrew"
 include_recipe "osx-bootstrap::rbenv"
+include_recipe "osx-bootstrap::java"
+
+homebrew_cask "rubymine" do
+  action :install
+end
