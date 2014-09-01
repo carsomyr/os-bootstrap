@@ -27,6 +27,135 @@ require "yaml"
 
 module OsX
   module Bootstrap
+    # A formatter for framed, line-wrapped messages.
+    class Formatter
+      def initialize(header, footer, line_header, line_footer = nil, line_max = nil)
+        @header = header
+        @footer = footer
+        @line_header = line_header
+        @line_footer = line_footer
+        @line_max = line_max
+      end
+
+      # Formats the given string: Wraps lines to under the line size limit while applying headers and footers.
+      def format(str)
+        acc = ""
+
+        acc = @header + "\n" \
+          if @header
+
+        single_space_pattern = Regexp.new(" ")
+        line_acc = nil
+
+        REXML::Document.new("<root>#{str}</root>").root.children.each do |node|
+          case node
+            when REXML::Text
+              first_line = true
+
+              node.value.split("\n", -1).each do |line|
+                if !first_line
+                  acc += emit_line(line_acc || "")
+                  line_acc = nil
+                end
+
+                first_word = true
+
+                # Apparently the string `" "` has special meaning for Ruby regular expressions, so we use a regex to
+                # force the issue.
+                line.split(single_space_pattern, -1).each do |word|
+                  if line_acc
+                    if !first_word
+                      sep = " "
+                    else
+                      sep = ""
+                    end
+
+                    if @line_max && line_acc.size + sep.size + word.size > @line_max
+                      # Emit the accumulator and move on to building the next line.
+                      acc += emit_line(line_acc)
+                    else
+                      # Accumulate the word.
+                      line_acc += sep + word
+                      first_word = false
+
+                      next
+                    end
+                  end
+
+                  # Trim the word down to size.
+                  while @line_max && word.size > @line_max
+                    acc += emit_line(word[0...(@line_max - 1)] + "-")
+                    word = word[(@line_max - 1)...(word.size)]
+                  end
+
+                  line_acc = word
+                  first_word = false
+                end
+
+                first_line = false
+              end
+            when REXML::Element
+              case node.name
+                when "nobreak"
+                  first_line = true
+
+                  (node.text || "").split("\n", -1).each do |line|
+                    if !first_line
+                      acc += emit_line(line_acc || "")
+                      line_acc = nil
+                    end
+
+                    if line_acc
+                      if @line_max && line_acc.size + line.size > @line_max
+                        # Emit the accumulator and move on to building the next line.
+                        acc += emit_line(line_acc)
+                      else
+                        # Accumulate the line.
+                        line_acc += line
+                        first_line = false
+
+                        next
+                      end
+                    end
+
+                    # Trim the line down to size.
+                    while @line_max && line.size > @line_max
+                      acc += emit_line(line[0...(@line_max - 1)] + "-")
+                      line = line[(@line_max - 1)...(line.size)]
+                    end
+
+                    line_acc = line
+                    first_line = false
+                  end
+                else
+                  raise "Invalid node name #{node.name.dump}"
+              end
+            else
+              raise "Invalid node class #{node.class.name.dump}"
+          end
+        end
+
+        acc += emit_line(line_acc) \
+          if line_acc
+
+        acc += @footer + "\n" \
+          if @footer
+
+        acc
+      end
+
+      private
+
+      # Emits a single line of output.
+      def emit_line(word)
+        if @line_max
+          @line_header + word + " " * (@line_max - word.size) + @line_footer + "\n"
+        else
+          @line_header + word + "\n"
+        end
+      end
+    end
+
     # Some helpers to reduce boilerplate in Rake tasks.
     module RakeHelpers
       module InstanceMethods
