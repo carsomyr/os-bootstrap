@@ -8,6 +8,7 @@
     "recipe[osx-bootstrap::gnupg2]",
     "recipe[osx-bootstrap::editor]",
     "recipe[osx-bootstrap::xcode]",
-    "recipe[osx-bootstrap::preferences]"
+    "recipe[osx-bootstrap::preferences]",
+    "recipe[osx-bootstrap::includes]"
   ]
 }

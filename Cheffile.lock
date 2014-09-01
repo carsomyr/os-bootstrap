@@ -11,14 +11,32 @@ GIT
   specs:
     plist (0.9.0)
 
+GIT
+  remote: https://github.com/fnichol/chef-rbenv
+  ref: master
+  sha: 0a3018634bafe58ad21c6ee271af015220e444b9
+  specs:
+    rbenv (0.7.3)
+
+GIT
+  remote: https://github.com/fnichol/chef-ruby_build
+  ref: master
+  sha: 4d3361995a6953076951693eff1b326ab499fe1e
+  specs:
+    ruby_build (0.8.1)
+
 PATH
   remote: vendor/cookbooks/osx-bootstrap
   specs:
     osx-bootstrap (0.9.0)
       homebrew (>= 0.0.0)
       plist (>= 0.0.0)
+      rbenv (>= 0.0.0)
+      ruby_build (>= 0.0.0)
 
 DEPENDENCIES
   osx-bootstrap (>= 0)
   plist (>= 0)
+  rbenv (>= 0)
+  ruby_build (>= 0)
 

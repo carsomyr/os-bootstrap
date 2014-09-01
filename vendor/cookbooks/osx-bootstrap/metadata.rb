@@ -28,3 +28,5 @@ supports "mac_os_x_server"
 
 depends "homebrew"
 depends "plist"
+depends "rbenv"
+depends "ruby_build"

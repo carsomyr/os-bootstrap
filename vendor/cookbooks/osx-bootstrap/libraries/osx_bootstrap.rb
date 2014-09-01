@@ -21,6 +21,8 @@ require "socket"
 module ::OsX
   module Bootstrap
     module InstanceMethods
+      RECIPE_NAME_PATTERN = Regexp.new("\\A(?:.+?)::(?:.+)\\z")
+
       def owner
         @owner ||= node["osx-bootstrap"]["owner"] || ENV["SUDO_USER"] || Etc.getpwuid.name
       end
@@ -45,6 +47,16 @@ module ::OsX
 
       def recipe_full_name
         "#{cookbook_name}::#{recipe_name}"
+      end
+
+      def infer_recipe_name(recipe_name)
+        m = RECIPE_NAME_PATTERN.match(recipe_name)
+
+        if !m
+          "#{cookbook_name}::#{recipe_name}"
+        else
+          recipe_name
+        end
       end
     end
 

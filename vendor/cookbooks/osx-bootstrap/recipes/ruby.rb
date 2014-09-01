@@ -14,10 +14,4 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-default["osx-bootstrap"]["includes"] = []
-default["osx-bootstrap"]["owner"] = nil
-default["osx-bootstrap"]["prefix"] = "/usr/local"
-default["osx-bootstrap"]["user"]["editor"] = "emacs"
-default["osx-bootstrap"]["user"]["email"] = nil
-default["osx-bootstrap"]["user"]["full_name"] = nil
-default["osx-bootstrap"]["volume_root"] = "/Volumes/OS X Bootstrap"
+include_recipe "osx-bootstrap::rbenv"

@@ -14,10 +14,17 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-default["osx-bootstrap"]["includes"] = []
-default["osx-bootstrap"]["owner"] = nil
-default["osx-bootstrap"]["prefix"] = "/usr/local"
-default["osx-bootstrap"]["user"]["editor"] = "emacs"
-default["osx-bootstrap"]["user"]["email"] = nil
-default["osx-bootstrap"]["user"]["full_name"] = nil
-default["osx-bootstrap"]["volume_root"] = "/Volumes/OS X Bootstrap"
+class << self
+  include OsX::Bootstrap
+end
+
+# Include recipes specified by the user.
+
+includes = node["osx-bootstrap"]["includes"]
+
+includes = [includes] \
+  if includes.is_a?(String)
+
+includes.each do |recipe_name|
+  include_recipe infer_recipe_name(recipe_name)
+end

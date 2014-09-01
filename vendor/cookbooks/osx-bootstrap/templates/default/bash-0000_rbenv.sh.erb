@@ -1,0 +1,13 @@
+#  ____________________________________
+# / This file is managed by Chef. Your \
+# \ changes will be overwritten.       /
+#  ------------------------------------
+#         \   ^__^
+#          \  (oo)\_______
+#             (__)\       )\/\
+#                 ||----w |
+#                 ||     ||
+
+export -- RBENV_ROOT=<%= Shellwords.escape(rbenv_root.to_s) %>
+PATH=<%= Shellwords.escape(rbenv_bin_dir.to_s) -%>"${PATH:+":${PATH}"}"
+eval -- "$(rbenv init -)"
