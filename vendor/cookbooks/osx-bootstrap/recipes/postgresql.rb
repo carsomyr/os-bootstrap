@@ -14,11 +14,33 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-include_recipe "osx-bootstrap::homebrew"
-include_recipe "osx-bootstrap::rbenv"
-include_recipe "osx-bootstrap::postgresql"
-include_recipe "osx-bootstrap::java"
+require "pathname"
 
-homebrew_cask "rubymine" do
+class << self
+  include OsX::Bootstrap
+end
+
+include_recipe "osx-bootstrap::homebrew"
+
+recipe = self
+prefix = Pathname.new(node["osx-bootstrap"]["prefix"])
+
+package "postgresql" do
   action :install
+end
+
+# Install the database server daemon.
+template "/Library/LaunchDaemons/homebrew.postgresql.server.plist" do
+  source "postgresql-homebrew.postgresql.server.plist.erb"
+  owner "root"
+  group "wheel"
+  mode 0644
+  helper(:prefix) { prefix }
+  helper(:owner) { recipe.owner }
+  notifies :restart, "service[homebrew.postgresql.server]", :immediately
+  action :create
+end
+
+service "homebrew.postgresql.server" do
+  action :nothing
 end
