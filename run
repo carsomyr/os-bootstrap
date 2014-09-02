@@ -185,6 +185,15 @@ module OsX
             command
           end
         end
+
+        # Pretty prints the given message.
+        def pp(type = nil, message = nil)
+          if type
+            puts Rake.application.formatters[type].format(message)
+          else
+            puts
+          end
+        end
       end
 
       def self.included(klass)
@@ -233,6 +242,8 @@ module OsX
             directory installed_key_file.parent.to_s
 
             file installed_key_file.to_s => [ssh_key_file.to_s, installed_key_file.parent.to_s] do
+              pp(:info, "Write the SSH private key file to #{installed_key_file.to_s}")
+
               # Copy the private key file and secure the copy.
               FileUtils.copy(ssh_key_file, installed_key_file)
               FileUtils.chmod(0600, installed_key_file)
@@ -266,6 +277,8 @@ module OsX
             next \
               if clt_bom.file? && clt_plist.file?
 
+            pp(:info, "Run `softwareupdate` to get the manifest of available updates")
+
             sh "softwareupdate", "-l"
 
             # After `softwareupdate` has run, look in the plist of recommended updates. Some sort of command-line tools
@@ -297,6 +310,8 @@ module OsX
             identifier = node.elements["key[text()=\"Identifier\"]/following::string[position()=1]/text()"]
             display_version = node.elements["key[text()=\"Display Version\"]/following::string[position()=1]/text()"]
 
+            pp(:info, "Install #{identifier} via `softwareupdate`")
+
             sh "softwareupdate", "-v", "-i", "#{identifier}-#{display_version}"
           end
 
@@ -313,11 +328,15 @@ module OsX
 
           desc "Clones the rbenv repository into #{rbenv_dir.to_s.dump}"
           directory rbenv_dir.to_s => [:check_root, "command_line_tools:install"] do
+            pp(:info, "Clone the rbenv repository")
+
             sh "git", "clone", "--", "https://github.com/sstephenson/rbenv", rbenv_dir.to_s
           end
 
           desc "Clones the ruby-build repository into #{ruby_build_dir.to_s.dump}"
           directory ruby_build_dir.to_s => [:check_root, "command_line_tools:install"] do
+            pp(:info, "Clone the ruby-build repository")
+
             sh "git", "clone", "--", "https://github.com/sstephenson/ruby-build", ruby_build_dir.to_s
           end
 
@@ -325,6 +344,8 @@ module OsX
 
           desc "Installs the default rbenv Ruby"
           file rbenv_ruby_token.to_s => [rbenv_dir.to_s, ruby_build_dir.to_s, rbenv_ruby_token.parent.to_s] do
+            pp(:info, "Install rbenv Ruby version #{rbenv_version}")
+
             rbenv(rbenv_dir) do |rbenv|
               sh rbenv, "install", rbenv_version
             end
@@ -357,6 +378,8 @@ module OsX
             directory installed_attributes_file.parent.to_s
 
             file installed_attributes_file.to_s => [chef_attributes_file.to_s, installed_attributes_file.parent.to_s] do
+              pp(:info, "Write the JSONified Chef attributes file to #{installed_attributes_file.to_s}")
+
               h = YAML.load(chef_attributes_file.open("rb") { |f| f.read })
               installed_attributes_file.open("wb") { |f| f.write(JSON.generate(h)) }
             end
@@ -369,6 +392,8 @@ module OsX
 
           desc "Clones the user's Chef repository into #{repo_dir.to_s.dump}"
           directory repo_dir.to_s => [:check_root, "ssh:install", "command_line_tools:install"] do
+            pp(:info, "Clone the Chef repository at #{repo_url} (#{repo_branch})")
+
             git_command = ssh_wrap(
                 ["git", "clone", "-b", repo_branch, "--", repo_url, repo_dir.to_s],
                 installed_key_file
@@ -392,6 +417,8 @@ module OsX
             next \
               if bundle_executable.executable? && chef_client_executable.executable?
 
+            pp(:info, "Install the `bundler` and `chef` gems")
+
             # Change the directory to avoid picking up any stray `.ruby-version` files.
             Dir.chdir(Pathname.new("/")) do
               rbenv(rbenv_dir) do |rbenv|
@@ -411,6 +438,8 @@ module OsX
 
           desc "Runs `bundle install` in the Chef repository"
           file gemfile_token.to_s => [bundle_executable.to_s, gemfile_lock.to_s] do
+            pp(:info, "Run `bundle install` in the Chef repository")
+
             Dir.chdir(repo_dir) do
               rbenv(rbenv_dir) do |rbenv|
                 sh rbenv, "exec", "bundle", "install"
@@ -430,6 +459,8 @@ module OsX
 
           desc "Runs `librarian-chef install` in the Chef repository"
           file cheffile_token.to_s => [bundle_executable.to_s, cheffile_lock.to_s, gemfile_token.to_s] do
+            pp(:info, "Run `librarian-chef install` in the Chef repository")
+
             Dir.chdir(repo_dir) do
               rbenv(rbenv_dir) do |rbenv|
                 sh rbenv, "exec", "bundle", "exec", "librarian-chef", "install"
@@ -528,7 +559,32 @@ EOS
           FileUtils.chmod("+x", osx_bootstrap_executable)
         end
 
-        main_task = task install: [osx_bootstrap_executable.to_s]
+        main_task = task install: [osx_bootstrap_executable.to_s] do
+          # Display the post-installation notice.
+          pp
+          pp(:heading, <<EOS
+Installation complete!
+
+We've placed the <nobreak>#{osx_bootstrap_executable.basename.to_s.encode(xml: :text)}</nobreak> script in <nobreak>\
+#{osx_bootstrap_executable.dirname.to_s.encode(xml: :text)}</nobreak>. Assuming that it's on your path, you can now run:
+
+    sudo -- <nobreak>#{osx_bootstrap_executable.basename.to_s.encode(xml: :text)}</nobreak>
+
+Each invocation will check the repository at\
+ <nobreak>#{"#{repo_url} (#{repo_branch})".to_s.encode(xml: :text)}</nobreak>\
+ for changes, and, if any, run `bundle install` followed by `bundle exec librarian-chef install` to update Ruby gems\
+ and Chef cookbooks, respectively.
+
+Running this installer again will regenerate\
+ <nobreak>#{osx_bootstrap_executable.to_s.encode(xml: :text)}</nobreak>. Consequently, the new instance will take on\
+ potentially different settings.
+
+Happy provisioning, and don't hesitate to file issues against the project:
+
+    https://github.com/carsomyr/osx-bootstrap
+EOS
+          )
+        end
       end
 
       main_task
@@ -584,6 +640,10 @@ if __FILE__ == $0
       opts[:chef_attributes_file] = Pathname.new(chef_attributes_file)
     end
 
+    opt_spec.on("-y", "--yes", "a non-interactive \"yes\" answer to all prompts") do
+      opts[:yes_to_all] = true
+    end
+
     opt_spec.on("-v", "--verbose", "be verbose") do
       opts[:verbose] = true
     end
@@ -603,11 +663,37 @@ if __FILE__ == $0
     include OsX::Bootstrap::RakeHelpers
   end
 
+  if STDOUT.tty?
+    tty_blue = "\033[34m"
+    tty_green = "\033[32m"
+    tty_reset = "\033[0m"
+  else
+    tty_blue = ""
+    tty_green = ""
+    tty_reset = ""
+  end
+
+  # Set the pretty print formatters.
+  Rake.application.formatters = {
+      heading: OsX::Bootstrap::Formatter.new(
+          "#{tty_blue}*#{"-" * 118}*#{tty_reset}",
+          "#{tty_blue}*#{"-" * 118}*#{tty_reset}",
+          "#{tty_blue}|#{tty_reset} ", " #{tty_blue}|#{tty_reset}", 116
+      ),
+      info: OsX::Bootstrap::Formatter.new(
+          "", "", " #{tty_green}=>#{tty_reset} "
+      )
+  }
+
   prefix = opts[:prefix]
   config_dir = opts[:config_dir]
   ssh_key_file = opts[:ssh_key_file]
   chef_attributes_file = opts[:chef_attributes_file]
+  rbenv_dir = opts[:rbenv_dir]
+  rbenv_version = opts[:rbenv_version]
+  yes_to_all = opts[:yes_to_all]
   repo_url = opts[:repo_url]
+  repo_branch = opts[:repo_branch]
 
   if !ssh_key_file
     ssh_key_file = Pathname.glob("#{config_dir.to_s}/ssh/id_{rsa,dsa,ecdsa}").first
@@ -628,6 +714,54 @@ if __FILE__ == $0
     if !m
 
   opts[:repo_dir] = prefix + "var/osx-bootstrap/git/#{m[1]}-#{Digest::SHA1.hexdigest(repo_url)[0...7]}"
+
+  pp(:heading, <<EOS
+Hello from the OS X Bootstrap installer!
+
+We're just a few minutes away from provisioning your machine with Chef. Before proceeding, please confirm these\
+ settings.
+
+Chef repository:
+    <nobreak>#{"#{repo_url} (#{repo_branch})".encode(xml: :text)}</nobreak>
+
+SSH private key:
+    <nobreak>#{((ssh_key_file && ssh_key_file.to_s) || "(not found)").encode(xml: :text)}</nobreak>
+
+Chef attributes:
+    <nobreak>#{((chef_attributes_file && chef_attributes_file.to_s) || "(not found)").encode(xml: :text)}</nobreak>
+
+install prefix:
+    <nobreak>#{prefix.to_s.encode(xml: :text)}</nobreak>
+
+rbenv root:
+    <nobreak>#{rbenv_dir.to_s.encode(xml: :text)}</nobreak>
+
+rbenv version:
+    <nobreak>#{rbenv_version.encode(xml: :text)}</nobreak>
+
+You can rerun this script with `-h` to get a menu of command-line options for overriding any of the above.
+EOS
+  )
+  pp
+
+  if !yes_to_all
+    print "\n #{tty_green}=>#{tty_reset} Do you wish to continue (y/n)? "
+
+    answer = STDIN.getc
+
+    print "\n"
+
+    if answer != "y"
+      if STDIN.tty?
+        pp(:info, "Installation not attempted.")
+      else
+        pp(:info, "Installation not attempted. If you are running this script non-interactively, consider providing" \
+                  " the `-y` flag option.")
+      end
+
+      exit 1
+    end
+  end
 
   instance_exec(opts, &OsX::Bootstrap.define_rake_tasks).invoke
 end
