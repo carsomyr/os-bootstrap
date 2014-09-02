@@ -9,6 +9,7 @@
     "recipe[osx-bootstrap::editor]",
     "recipe[osx-bootstrap::xcode]",
     "recipe[osx-bootstrap::preferences]",
+    "recipe[osx-bootstrap::machine]",
     "recipe[osx-bootstrap::includes]"
   ]
 }
