@@ -194,6 +194,39 @@ module OsX
             puts
           end
         end
+
+        # Recursively traverses a directory of `_attributes.yml` files and merges them into one.
+        def attributes_from_dir(dir)
+          attribute_file = dir + "_attributes.yml"
+
+          if attribute_file.file?
+            attribute_files = [attribute_file]
+            attributes = YAML.load(attribute_file.open("rb") { |f| f.read }) || {}
+
+            dir.children.select do |dir|
+              dir.directory? && !dir.symlink?
+            end.each do |child_dir|
+              child_attributes, child_attribute_files = attributes_from_dir(child_dir)
+
+              child_key = child_dir.basename.to_s
+              attributes[child_key] = deep_merge(attributes[child_key] || {}, child_attributes)
+              attribute_files += child_attribute_files
+            end
+
+            [attributes, attribute_files]
+          else
+            [{}, []]
+          end
+        end
+
+        # Deep merges the given `Hash`es.
+        def deep_merge(lhs, rhs)
+          if lhs.is_a?(Hash) && rhs.is_a?(Hash)
+            lhs.merge(rhs) { |_, lhs_value, rhs_value| deep_merge(lhs_value, rhs_value) }
+          else
+            rhs
+          end
+        end
       end
 
       def self.included(klass)
@@ -215,7 +248,7 @@ module OsX
       namespace :osx_bootstrap do
         prefix = opts[:prefix]
         ssh_key_file = opts[:ssh_key_file]
-        chef_attributes_file = opts[:chef_attributes_file]
+        chef_attribute_path = opts[:chef_attribute_path]
         rbenv_dir = opts[:rbenv_dir]
         rbenv_version = opts[:rbenv_version]
         repo_url = opts[:repo_url]
@@ -366,26 +399,34 @@ module OsX
           gemfile_token = cache_dir + ".Gemfile.lock"
           cheffile_lock = repo_dir + "Cheffile.lock"
           cheffile_token = cache_dir + ".Cheffile.lock"
+          installed_attribute_file = prefix + "var/osx-bootstrap/chef/attributes.json"
 
-          if chef_attributes_file
-            installed_attributes_file = prefix + "var/osx-bootstrap/chef/attributes.json"
+          if chef_attribute_path
+            if chef_attribute_path.directory?
+              attributes, deps = attributes_from_dir(chef_attribute_path)
+              deps = deps.map { |dep| dep.to_s }
 
-            file chef_attributes_file.to_s do
-              raise "No Chef attributes file found at #{chef_attributes_file.to_s.dump}" \
-                if !chef_attributes_file.file?
+              deps.each { |dep| file dep.to_s }
+            elsif chef_attribute_path.file?
+              attributes = YAML.load(chef_attribute_path.open("rb") { |f| f.read }) || {}
+              deps = [chef_attribute_path.to_s]
+
+              file chef_attribute_path.to_s
+            else
+              raise "No Chef attribute file found at #{chef_attribute_path.to_s.dump}" \
+                if !chef_attribute_path.file?
             end
 
-            directory installed_attributes_file.parent.to_s
+            directory installed_attribute_file.parent.to_s
 
-            file installed_attributes_file.to_s => [chef_attributes_file.to_s, installed_attributes_file.parent.to_s] do
-              pp(:info, "Write the JSONified Chef attributes file to #{installed_attributes_file.to_s}")
+            file installed_attribute_file.to_s => [*deps, installed_attribute_file.parent.to_s] do
+              pp(:info, "Write the JSONified Chef attribute file to #{installed_attribute_file.to_s}")
 
-              h = YAML.load(chef_attributes_file.open("rb") { |f| f.read })
-              installed_attributes_file.open("wb") { |f| f.write(JSON.generate(h)) }
+              installed_attribute_file.open("wb") { |f| f.write(JSON.generate(attributes)) }
             end
 
-            desc "Installs the Chef attributes file for later use"
-            task install_attributes: [installed_attributes_file.to_s]
+            desc "Installs the Chef attribute file for later use"
+            task install_attributes: [installed_attribute_file.to_s]
           else
             task :install_attributes
           end
@@ -497,7 +538,7 @@ module OsX
           lines.push(["chef-client", "-z"])
           lines.push(["-c", chef_config_file.to_s])
           lines.push(["-j", (prefix + "var/osx-bootstrap/chef/attributes.json").to_s]) \
-            if chef_attributes_file
+            if chef_attribute_path
 
           chef_client_command = lines.map do |args|
             args.map do |arg|
@@ -601,7 +642,7 @@ if __FILE__ == $0
       repo_url: "https://github.com/carsomyr/osx-bootstrap",
       repo_branch: "master",
       ssh_key_file: nil,
-      chef_attributes_file: nil,
+      chef_attribute_path: nil,
       verbose: false
   }
 
@@ -635,9 +676,9 @@ if __FILE__ == $0
       opts[:ssh_key_file] = Pathname.new(ssh_key_file)
     end
 
-    opt_spec.on("-c", "--chef-attributes CHEF_ATTRIBUTES", "provide a `chef-client` attributes file in" \
-                " YAML") do |chef_attributes_file|
-      opts[:chef_attributes_file] = Pathname.new(chef_attributes_file)
+    opt_spec.on("-c", "--chef-attribute-path CHEF_ATTRIBUTE_PATH", "provide a `chef-client` attribute file in YAML or" \
+                " as a directory hierarchy of `_attributes.yml` files") do |chef_attribute_path|
+      opts[:chef_attribute_path] = Pathname.new(chef_attribute_path)
     end
 
     opt_spec.on("-y", "--yes", "a non-interactive \"yes\" answer to all prompts") do
@@ -688,7 +729,7 @@ if __FILE__ == $0
   prefix = opts[:prefix]
   config_dir = opts[:config_dir]
   ssh_key_file = opts[:ssh_key_file]
-  chef_attributes_file = opts[:chef_attributes_file]
+  chef_attribute_path = opts[:chef_attribute_path]
   rbenv_dir = opts[:rbenv_dir]
   rbenv_version = opts[:rbenv_version]
   yes_to_all = opts[:yes_to_all]
@@ -700,11 +741,11 @@ if __FILE__ == $0
     opts[:ssh_key_file] = ssh_key_file
   end
 
-  default_attributes_file = config_dir + "chef/_attributes.yml"
+  default_attribute_file = config_dir + "chef/_attributes.yml"
 
-  if !chef_attributes_file && default_attributes_file.file?
-    chef_attributes_file = default_attributes_file
-    opts[:chef_attributes_file] = chef_attributes_file
+  if !chef_attribute_path && default_attribute_file.file?
+    chef_attribute_path = default_attribute_file.parent
+    opts[:chef_attribute_path] = chef_attribute_path
   end
 
   repo_basename_pattern = Regexp.new("\\A.+[/:](.+)\\z")
@@ -727,8 +768,9 @@ Chef repository:
 SSH private key:
     <nobreak>#{((ssh_key_file && ssh_key_file.to_s) || "(not found)").encode(xml: :text)}</nobreak>
 
-Chef attributes:
-    <nobreak>#{((chef_attributes_file && chef_attributes_file.to_s) || "(not found)").encode(xml: :text)}</nobreak>
+Chef attribute path<nobreak>#{((chef_attribute_path && " (#{chef_attribute_path.ftype})") || "").encode(xml: :text)}\
+</nobreak>:
+    <nobreak>#{((chef_attribute_path && chef_attribute_path.to_s) || "(not found)").encode(xml: :text)}</nobreak>
 
 install prefix:
     <nobreak>#{prefix.to_s.encode(xml: :text)}</nobreak>
