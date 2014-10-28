@@ -357,7 +357,8 @@ module OsX
 
         namespace :rbenv do
           ruby_build_dir = (rbenv_dir + "plugins/ruby-build")
-          rbenv_ruby_token = cache_dir + ".rbenv-ruby-#{rbenv_version}"
+          ruby_build_definition = ruby_build_dir + "share/ruby-build/#{rbenv_version}"
+          rbenv_ruby_token = cache_dir + "#{rbenv_version}/.ruby"
 
           desc "Clones the rbenv repository into #{rbenv_dir.to_s.dump}"
           directory rbenv_dir.to_s => [:check_root, "command_line_tools:install"] do
@@ -373,10 +374,19 @@ module OsX
             sh "git", "clone", "--", "https://github.com/sstephenson/ruby-build", ruby_build_dir.to_s
           end
 
+          desc "Updates the ruby-build repository"
+          file ruby_build_definition.to_s => [ruby_build_dir.to_s] do
+            pp(:info, "Update the ruby-build repository")
+
+            Dir.chdir(ruby_build_dir) do
+              sh "git", "pull"
+            end
+          end
+
           directory rbenv_ruby_token.parent.to_s
 
           desc "Installs the default rbenv Ruby"
-          file rbenv_ruby_token.to_s => [rbenv_dir.to_s, ruby_build_dir.to_s, rbenv_ruby_token.parent.to_s] do
+          file rbenv_ruby_token.to_s => [rbenv_dir.to_s, ruby_build_definition.to_s, rbenv_ruby_token.parent.to_s] do
             pp(:info, "Install rbenv Ruby version #{rbenv_version}")
 
             rbenv(rbenv_dir) do |rbenv|
@@ -393,12 +403,12 @@ module OsX
         end
 
         namespace :chef do
-          bundle_executable = rbenv_dir + "shims/bundle"
-          chef_client_executable = rbenv_dir + "shims/chef-client"
+          bundle_executable = rbenv_dir + "versions/#{rbenv_version}/bin/bundle"
+          chef_client_executable = rbenv_dir + "versions/#{rbenv_version}/bin/chef-client"
           gemfile_lock = repo_dir + "Gemfile.lock"
-          gemfile_token = cache_dir + ".Gemfile.lock"
+          gemfile_token = cache_dir + "#{rbenv_version}/.Gemfile.lock"
           cheffile_lock = repo_dir + "Cheffile.lock"
-          cheffile_token = cache_dir + ".Cheffile.lock"
+          cheffile_token = cache_dir + "#{rbenv_version}/.Cheffile.lock"
           installed_attribute_file = prefix + "var/osx-bootstrap/chef/attributes.json"
 
           if chef_attribute_path
