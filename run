@@ -638,7 +638,7 @@ if __FILE__ == $0
       prefix: Pathname.new("/usr/local"),
       config_dir: Pathname.new("/Volumes/OS X Bootstrap"),
       rbenv_dir: Pathname.new("/opt/rbenv"),
-      rbenv_version: "2.1.2",
+      rbenv_version: "2.1.4",
       repo_url: "https://github.com/carsomyr/osx-bootstrap",
       repo_branch: "master",
       ssh_key_file: nil,
