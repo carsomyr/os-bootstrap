@@ -14,5 +14,6 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
+default["osx-bootstrap"]["machine"]["by_mac_address"] = {}
 default["osx-bootstrap"]["machine"]["local_hostname"] = nil
 default["osx-bootstrap"]["machine"]["name"] = nil
