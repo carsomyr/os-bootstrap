@@ -21,6 +21,7 @@ require "json"
 require "optparse"
 require "pathname"
 require "rake"
+require "rbconfig"
 require "rexml/document"
 require "shellwords"
 require "yaml"
@@ -242,7 +243,7 @@ module OsX
       attr_reader :define_rake_tasks
     end
 
-    @define_rake_tasks = Proc.new do |opts|
+    @define_rake_tasks = Proc.new do |opts, user_opts|
       main_task = nil
 
       namespace :osx_bootstrap do
@@ -554,7 +555,38 @@ module OsX
             args.map do |arg|
               Shellwords.escape(arg)
             end.join(" ")
-          end.join(" \\\n    ")
+          end.join(" \\\n            ")
+
+          ruby_executable = Pathname.new(RbConfig::CONFIG["bindir"]) \
+            + (RbConfig::CONFIG["RUBY_INSTALL_NAME"] + RbConfig::CONFIG["EXEEXT"])
+
+          lines = [["--"]]
+          lines.push(["--prefix", user_opts[:prefix].realpath.to_s]) \
+            if user_opts[:prefix]
+          lines.push(["--config-dir", user_opts[:config_dir].realpath.to_s]) \
+            if user_opts[:config_dir]
+          lines.push(["--rbenv-dir", user_opts[:rbenv_dir].realpath.to_s]) \
+            if user_opts[:rbenv_dir]
+          lines.push(["--rbenv-version", user_opts[:rbenv_version]]) \
+            if user_opts[:rbenv_version]
+          lines.push(["--branch", user_opts[:repo_branch]]) \
+            if user_opts[:repo_branch]
+          lines.push(["--ssh-key", user_opts[:ssh_key_file].realpath.to_s]) \
+            if user_opts[:ssh_key_file]
+          lines.push(["--chef-attribute-path", user_opts[:chef_attribute_path].realpath.to_s]) \
+            if user_opts[:chef_attribute_path]
+          lines.push(["--yes"]) \
+            if user_opts[:yes_to_all]
+          lines.push(["--verbose"]) \
+            if user_opts[:verbose]
+          lines.push(["--", user_opts[:repo_url]]) \
+            if user_opts[:repo_url]
+
+          cached_installer_args = lines.map do |args|
+            args.map do |arg|
+              Shellwords.escape(arg)
+            end.join(" ")
+          end.join(" \\\n                ")
 
           osx_bootstrap_executable.open("wb") do |f|
             f.write(<<EOS
@@ -580,28 +612,50 @@ PATH=#{Shellwords.escape((rbenv_dir + "shims").to_s)}"${PATH:+":${PATH}"}"
 # Ensure that SSH authentication works off of the given private key *only*.
 unset -- SSH_AUTH_SOCK
 
-cd -- #{Shellwords.escape(repo_dir.to_s)}
+case "$1" in
+    "")
+        cd -- #{Shellwords.escape(repo_dir.to_s)}
 
-sha1_old=$(git rev-parse --verify HEAD)
-#{git_command}
-sha1_new=$(git rev-parse --verify "HEAD@{upstream}")
+        sha1_old=$(git rev-parse --verify HEAD)
+        #{git_command}
+        sha1_new=$(git rev-parse --verify "HEAD@{upstream}")
 
-# Compare the old and new SHA-1 hashes and only take action if they are different.
-if [[ "$sha1_old" != "$sha1_new" ]]; then
-    # Hard reset to the latest commit.
-    git reset -q --hard "$sha1_new"
+        # Compare the old and new SHA-1 hashes and only take action if they are different.
+        if [[ "$sha1_old" != "$sha1_new" ]]; then
+            # Hard reset to the latest commit.
+            git reset -q --hard "$sha1_new"
 
-    if [[ -f "Gemfile" ]]; then
-        #{bundle_command}
+            if [[ -f "Gemfile" ]]; then
+                #{bundle_command}
 
-        if [[ -f "Cheffile" ]]; then
-            #{librarian_chef_command}
+                if [[ -f "Cheffile" ]]; then
+                    #{librarian_chef_command}
+                fi
+            fi
         fi
-    fi
-fi
 
-# Run the Chef client in local mode (`-z`) and point it to the repository's configuration file (by convention).
-exec -- #{Shellwords.escape(rbenv_executable.to_s)} exec #{chef_client_command}
+        # Run the Chef client in local mode (`-z`) and point it to the repository's configuration file (by convention).
+        exec -- #{Shellwords.escape(rbenv_executable.to_s)} exec #{chef_client_command}
+        ;;
+
+    self-update)
+        shift -- 1
+
+        if (( $# == 0 )); then
+            # These are the installer's original command-line arguments.
+            set #{cached_installer_args}
+        fi
+
+        exec -- #{Shellwords.escape(ruby_executable.to_s)} \\
+            -e "$(curl -fsSL -- "https://raw.githubusercontent.com/carsomyr/osx-bootstrap/install/run")" \\
+            -- "$@"
+        ;;
+
+    *)
+        echo "osx-bootstrap: Unrecognized subcommand \\`$1\\`" >&2
+        exit -- 1
+        ;;
+esac
 EOS
             )
           end
@@ -626,7 +680,7 @@ Each invocation will check the repository at\
  for changes, and, if any, run `bundle install` followed by `bundle exec librarian-chef install` to update Ruby gems\
  and Chef cookbooks, respectively.
 
-Running this installer again will regenerate\
+The `self-update` subcommand will run this installer with its original command-line arguments and regenerate\
  <nobreak>#{osx_bootstrap_executable.to_s.encode(xml: :text)}</nobreak>. Consequently, the new instance will take on\
  potentially different settings.
 
@@ -656,6 +710,8 @@ if __FILE__ == $0
       verbose: false
   }
 
+  user_opts = {}
+
   positional_args = OptionParser.new do |opt_spec|
     opt_spec.banner = "usage: #{Pathname.new(__FILE__).basename} [<options>] [[--] <dir>...]"
 
@@ -663,51 +719,53 @@ if __FILE__ == $0
     opt_spec.separator "optional arguments:"
 
     opt_spec.on("--prefix PREFIX", "specify the installation prefix") do |prefix|
-      opts[:prefix] = Pathname.new(prefix)
+      user_opts[:prefix] = Pathname.new(prefix)
     end
 
     opt_spec.on("--config-dir CONFIG_DIR", "specify the configuration directory") do |config_dir|
-      opts[:config_dir] = Pathname.new(config_dir)
+      user_opts[:config_dir] = Pathname.new(config_dir)
     end
 
     opt_spec.on("--rbenv-dir RBENV_DIR", "specify the rbenv installation directory") do |rbenv_dir|
-      opts[:rbenv_dir] = Pathname.new(rbenv_dir)
+      user_opts[:rbenv_dir] = Pathname.new(rbenv_dir)
     end
 
     opt_spec.on("--rbenv-version RBENV_VERSION", "specify the default rbenv Ruby version") do |rbenv_version|
-      opts[:rbenv_version] = rbenv_version
+      user_opts[:rbenv_version] = rbenv_version
     end
 
     opt_spec.on("-b", "--branch BRANCH", "specify the Chef repository branch to checkout") do |repo_branch|
-      opts[:repo_branch] = repo_branch
+      user_opts[:repo_branch] = repo_branch
     end
 
     opt_spec.on("-k", "--ssh-key SSH_KEY", "provide an SSH private key") do |ssh_key_file|
-      opts[:ssh_key_file] = Pathname.new(ssh_key_file)
+      user_opts[:ssh_key_file] = Pathname.new(ssh_key_file)
     end
 
     opt_spec.on("-c", "--chef-attribute-path CHEF_ATTRIBUTE_PATH", "provide a `chef-client` attribute file in YAML or" \
                 " as a directory hierarchy of `_attributes.yml` files") do |chef_attribute_path|
-      opts[:chef_attribute_path] = Pathname.new(chef_attribute_path)
+      user_opts[:chef_attribute_path] = Pathname.new(chef_attribute_path)
     end
 
     opt_spec.on("-y", "--yes", "a non-interactive \"yes\" answer to all prompts") do
-      opts[:yes_to_all] = true
+      user_opts[:yes_to_all] = true
     end
 
     opt_spec.on("-v", "--verbose", "be verbose") do
-      opts[:verbose] = true
+      user_opts[:verbose] = true
     end
   end.parse(ARGV)
 
   case positional_args.size
     when 1
-      opts[:repo_url] = positional_args.first
+      user_opts[:repo_url] = positional_args.first
     when 0
       # Use default values.
     else
       raise "Please specify exactly one Git repository"
   end
+
+  opts = opts.merge(user_opts)
 
   # Mix in our helpers.
   class << self
@@ -815,5 +873,5 @@ EOS
     end
   end
 
-  instance_exec(opts, &OsX::Bootstrap.define_rake_tasks).invoke
+  instance_exec(opts, user_opts, &OsX::Bootstrap.define_rake_tasks).invoke
 end
