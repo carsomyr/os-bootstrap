@@ -24,11 +24,71 @@ class << self
   include OsX::Bootstrap
 end
 
+include_recipe "osx-bootstrap::homebrew"
+
 recipe = self
 prefix = Pathname.new(node["osx-bootstrap"]["prefix"])
 osx_bootstrap_ssh_dir = prefix + "var/osx-bootstrap/ssh"
 ssh_dir = owner_dir + ".ssh"
 ssh_key_file = Pathname.glob("#{osx_bootstrap_ssh_dir.to_s}/id_{rsa,dsa,ecdsa}").first
+
+homebrew_tap "homebrew/dupes" do
+  action :tap
+end
+
+package "openssh" do
+  options "--with-keychain-support"
+  action :install
+end
+
+directory "create the `~/Library` directory for #{recipe_full_name}" do
+  path (recipe.owner_dir + "Library").to_s
+  owner recipe.owner
+  group recipe.owner_group
+  mode 0700
+  action :create
+end
+
+directory "create the `~/Library/LaunchAgents` directory for #{recipe_full_name}" do
+  path (recipe.owner_dir + "Library/LaunchAgents").to_s
+  owner recipe.owner
+  group recipe.owner_group
+  mode 0755
+  action :create
+end
+
+# Install the user agent plist.
+template (owner_dir + "Library/LaunchAgents/homebrew.openssh.ssh-agent.plist").to_s do
+  source "ssh-homebrew.openssh.ssh-agent.plist.erb"
+  owner recipe.owner
+  group recipe.owner_group
+  mode 0644
+  helper(:prefix) { prefix }
+
+  # Disable OS X's pre-installed SSH agent for good measure.
+  notifies :disable, "service[org.openbsd.ssh-agent]", :immediately
+
+  notifies :restart, "service[homebrew.openssh.ssh-agent]", :immediately
+  action :create
+end
+
+service "org.openbsd.ssh-agent" do
+  action :nothing
+end
+
+service "homebrew.openssh.ssh-agent" do
+  notifies :write, "log[\"reset the `SSH_AUTH_SOCK` environment variable\" notice]", :immediately
+  action :nothing
+end
+
+# Remind the user that they need to reset the `SSH_AUTH_SOCK` environment variable for changes to take effect.
+log "\"reset the `SSH_AUTH_SOCK` environment variable\" notice" do
+  message "We replaced OS X's pre-installed SSH agent with the one from Homebrew's `openssh` formula. For changes to" \
+    " take effect, please reset the `SSH_AUTH_SOCK` environment variable with" \
+    " `SSH_AUTH_SOCK=$(launchctl getenv SSH_AUTH_SOCK)`."
+  level :info
+  action :nothing
+end
 
 directory (owner_dir + ".ssh").to_s do
   owner recipe.owner
