@@ -14,8 +14,10 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
+require "base64"
 require "chef/shell_out"
 require "pathname"
+require "socket"
 
 class << self
   include Chef::Mixin::ShellOut
@@ -65,14 +67,22 @@ if ssh_key_file
     sensitive true
 
     action :create
-    notifies :create, "file[#{installed_key_pub_file.to_s}]", :immediately
   end
 
   file installed_key_pub_file.to_s do
-    content(lazy { recipe.shell_out!("ssh-keygen", "-y", "-f", installed_key_file.to_s).stdout })
+    lazy_content = lazy do
+      key_data = installed_key_file.open("rb") { |f| f.read }
+      type = OsX::Bootstrap::Ssh.type(key_data)
+      base64_blob = Base64.strict_encode64(OsX::Bootstrap::Ssh.to_public_blob(key_data))
+      comment = "#{recipe.owner}@#{Socket.gethostname.split(".", -1).first}"
+
+      "#{type} #{base64_blob} #{comment}\n"
+    end
+
+    content lazy_content
     owner recipe.owner
     group recipe.owner_group
     mode 0644
-    action :nothing
+    action :create
   end
 end
