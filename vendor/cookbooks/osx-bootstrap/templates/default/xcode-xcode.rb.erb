@@ -1,19 +1,19 @@
-# -*- coding: utf-8 -*-
-#  ____________________________________
-# / This file is managed by Chef. Your \
-# \ changes will be overwritten.       /
-#  ------------------------------------
-#         \   ^__^
-#          \  (oo)\_______
-#             (__)\       )\/\
-#                 ||----w |
-#                 ||     ||
+cask :v1 => "xcode" do
+  #  ____________________________________
+  # / This file is managed by Chef. Your \
+  # \ changes will be overwritten.       /
+  #  ------------------------------------
+  #         \   ^__^
+  #          \  (oo)\_______
+  #             (__)\       )\/\
+  #                 ||----w |
+  #                 ||     ||
 
-require "pathname"
+  require "pathname"
 
-class Xcode < Cask
   find_app_dir = Proc.new do
-    Pathname.glob("#{@cask.destination_path.to_s}/Xcode*.app").first
+    staged_dir = @cask.respond_to?(:staged_path) ? @cask.staged_path : @cask.destination_path
+    Pathname.glob("#{staged_dir.to_s}/Xcode*.app").first
   end
 
   version "latest"
@@ -21,7 +21,7 @@ class Xcode < Cask
 
   url <%= xcode_url.dump %>
 
-  after_install do
+  postflight do
     xcode_app_dir = instance_exec(&find_app_dir)
 
     next \
@@ -32,7 +32,7 @@ class Xcode < Cask
     FileUtils.symlink(xcode_app_dir, Cask.appdir + xcode_app_dir.basename)
   end
 
-  before_uninstall do
+  uninstall_preflight do
     xcode_app_dir = instance_exec(&find_app_dir)
 
     next \
