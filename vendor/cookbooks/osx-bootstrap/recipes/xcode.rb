@@ -30,8 +30,10 @@ prefix = Pathname.new(node["osx-bootstrap"]["prefix"])
 xcode_url = node["osx-bootstrap"]["xcode"]["url"]
 volume_dir = Pathname.new(node["osx-bootstrap"]["volume_root"])
 caskroom_dir = Pathname.new(node["osx-bootstrap"]["homebrew"]["caskroom_path"])
-xcode_dmg_file = volume_dir && volume_dir + "archives/xcode.dmg"
+xcode_dmg_file = volume_dir && Pathname.glob("#{volume_dir.to_s}/archives/xcode*.dmg").first
 xcode_url ||= "file://#{URI.escape(xcode_dmg_file.to_s)}" if xcode_dmg_file && xcode_dmg_file.file?
+cask_version_pattern = Regexp.new("xcode([-_].+|)\\.dmg")
+cask_version = (xcode_dmg_file && cask_version_pattern.match(xcode_dmg_file.basename.to_s)[1][1..-1]) || "latest"
 
 # The `plist_file` LWRP needs Nokogiri's XML parsing and querying capabilities.
 chef_gem "install `nokogiri` for #{recipe_full_name}" do
@@ -59,6 +61,7 @@ if xcode_url
     owner recipe.owner
     group recipe.owner_group
     mode 0644
+    helper(:cask_version) { cask_version }
     helper(:xcode_url) { xcode_url }
     action :create
   end
@@ -70,7 +73,7 @@ if xcode_url
 
   ruby_block "run Xcode postinstall" do
     block do
-      xcode_cask_dir = caskroom_dir + "xcode/latest"
+      xcode_cask_dir = caskroom_dir + "xcode/#{cask_version}"
       xcode_app_dir = Pathname.glob("#{xcode_cask_dir.to_s}/Xcode*.app").first
 
       raise "An Xcode application bundle was not found in the cask staging directory #{xcode_app_dir.to_s.dump}" \

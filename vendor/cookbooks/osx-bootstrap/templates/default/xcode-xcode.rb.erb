@@ -16,7 +16,7 @@ cask :v1 => "xcode" do
     Pathname.glob("#{staged_dir.to_s}/Xcode*.app").first
   end
 
-  version "latest"
+  version <%= cask_version.dump %>
   sha256 :no_check
 
   url <%= xcode_url.dump %>
