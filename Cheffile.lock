@@ -1,13 +1,13 @@
 SITE
   remote: https://supermarket.getchef.com/api/v1
   specs:
-    homebrew (1.9.2)
+    homebrew (1.10.0)
 
 GIT
   remote: https://github.com/carsomyr/chef-plist
   path: vendor/cookbooks/plist
   ref: master
-  sha: a104a6fdc421e259bda463eada24ddcc8ddb9827
+  sha: e21c838e3e897d6b2ffbdb8ad9bacb21f98eee04
   specs:
     plist (0.9.0)
 
