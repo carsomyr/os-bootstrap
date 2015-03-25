@@ -241,7 +241,6 @@ module OsX
         repo_url = opts[:repo_url]
         repo_branch = opts[:repo_branch]
         repo_dir = opts[:repo_dir]
-        cache_dir = prefix + "var/osx-bootstrap/cache"
         chef_config_file = repo_dir + "config/client.rb"
         osx_bootstrap_executable = prefix + "bin/osx-bootstrap"
         installed_key_file = ssh_key_file && prefix + "var/osx-bootstrap/ssh" + ssh_key_file.basename
@@ -260,14 +259,16 @@ module OsX
                 if !ssh_key_file.file?
             end
 
-            directory installed_key_file.parent.to_s
+            if installed_key_file != ssh_key_file
+              directory installed_key_file.parent.to_s
 
-            file installed_key_file.to_s => [ssh_key_file.to_s, installed_key_file.parent.to_s] do
-              pp(:info, "Write the SSH private key file to #{installed_key_file.to_s}")
+              file installed_key_file.to_s => [ssh_key_file.to_s, installed_key_file.parent.to_s] do
+                pp(:info, "Write the SSH private key file to #{installed_key_file.to_s}")
 
-              # Copy the private key file and secure the copy.
-              FileUtils.copy(ssh_key_file, installed_key_file)
-              FileUtils.chmod(0600, installed_key_file)
+                # Copy the private key file and secure the copy.
+                FileUtils.copy(ssh_key_file, installed_key_file)
+                FileUtils.chmod(0600, installed_key_file)
+              end
             end
 
             desc "Installs the SSH private key file for later use"
@@ -371,7 +372,7 @@ EOS
         namespace :rbenv do
           ruby_build_dir = (rbenv_dir + "plugins/ruby-build")
           ruby_build_definition = ruby_build_dir + "share/ruby-build/#{rbenv_version}"
-          rbenv_ruby_token = cache_dir + "#{rbenv_version}/.ruby"
+          rbenv_ruby_token = prefix + "var/osx-bootstrap/rbenv/#{rbenv_version}/.ruby"
 
           desc "Clones the rbenv repository into #{rbenv_dir.to_s.dump}"
           directory rbenv_dir.to_s => [:check_root, "command_line_tools:install"] do
@@ -419,10 +420,11 @@ EOS
           bundle_executable = rbenv_dir + "versions/#{rbenv_version}/bin/bundle"
           chef_client_executable = rbenv_dir + "versions/#{rbenv_version}/bin/chef-client"
           gemfile_lock = repo_dir + "Gemfile.lock"
-          gemfile_token = cache_dir + "#{rbenv_version}/.Gemfile.lock"
+          gemfile_token = prefix + "var/osx-bootstrap/git/.#{repo_dir.basename.to_s}-Gemfile.lock"
           cheffile_lock = repo_dir + "Cheffile.lock"
-          cheffile_token = cache_dir + "#{rbenv_version}/.Cheffile.lock"
-          installed_attribute_file = prefix + "var/osx-bootstrap/chef/attributes.json"
+          cheffile_token = prefix + "var/osx-bootstrap/git/.#{repo_dir.basename.to_s}-Cheffile.lock"
+          installed_attribute_json_file = prefix + "var/osx-bootstrap/chef/attributes.json"
+          installed_attribute_yaml_file = prefix + "var/osx-bootstrap/chef/_attributes.yml"
 
           if chef_attribute_path
             if chef_attribute_path.directory?
@@ -440,16 +442,26 @@ EOS
                 if !chef_attribute_path.file?
             end
 
-            directory installed_attribute_file.parent.to_s
+            directory installed_attribute_json_file.parent.to_s
 
-            file installed_attribute_file.to_s => [*deps, installed_attribute_file.parent.to_s] do
-              pp(:info, "Write the JSONified Chef attribute file to #{installed_attribute_file.to_s}")
+            file installed_attribute_json_file.to_s => [*deps, installed_attribute_json_file.parent.to_s] do
+              pp(:info, "Write the JSONified Chef attribute file to #{installed_attribute_json_file.to_s}")
 
-              installed_attribute_file.open("wb") { |f| f.write(JSON.generate(attributes)) }
+              installed_attribute_json_file.open("wb") { |f| f.write(JSON.generate(attributes)) }
+            end
+
+            if !deps.find { |dep| dep == installed_attribute_yaml_file.to_s }
+              directory installed_attribute_yaml_file.parent.to_s
+
+              file installed_attribute_yaml_file.to_s => [*deps, installed_attribute_yaml_file.parent.to_s] do
+                pp(:info, "Write the YAMLized Chef attribute file to #{installed_attribute_yaml_file.to_s}")
+
+                installed_attribute_yaml_file.open("wb") { |f| f.write(YAML.dump(attributes)) }
+              end
             end
 
             desc "Installs the Chef attribute file for later use"
-            task install_attributes: [installed_attribute_file.to_s]
+            task install_attributes: [installed_attribute_json_file.to_s, installed_attribute_yaml_file.to_s]
           else
             task :install_attributes
           end
@@ -808,6 +820,11 @@ if __FILE__ == $0
   yes_to_all = opts[:yes_to_all]
   repo_url = opts[:repo_url]
   repo_branch = opts[:repo_branch]
+
+  existing_install_dir = prefix + "var/osx-bootstrap"
+
+  config_dir = existing_install_dir \
+    if !config_dir.directory? && existing_install_dir.directory?
 
   if !ssh_key_file
     ssh_key_file = Pathname.glob("#{config_dir.to_s}/ssh/id_{rsa,dsa,ecdsa}").first
