@@ -21,6 +21,7 @@ end
 # The `plist_file` LWRP needs Nokogiri's XML parsing and querying capabilities.
 chef_gem "install `nokogiri` for #{recipe_full_name}" do
   package_name "nokogiri"
+  compile_time true
   action :install
 end
 
