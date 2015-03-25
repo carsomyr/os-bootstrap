@@ -1,7 +1,9 @@
 SITE
   remote: https://supermarket.getchef.com/api/v1
   specs:
-    homebrew (1.10.0)
+    build-essential (2.2.1)
+    homebrew (1.12.0)
+      build-essential (>= 2.1.2)
 
 GIT
   remote: https://github.com/carsomyr/chef-plist

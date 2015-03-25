@@ -80,12 +80,3 @@ include_recipe "homebrew"
 
 # Enable `brew cask` functionality.
 include_recipe "homebrew::cask"
-
-# Create or update the Cask working directory with the proper permissions.
-directory node["osx-bootstrap"]["homebrew"]["caskroom_path"] do
-  owner "root"
-  group "admin"
-  mode 0775
-  recursive true
-  action :create
-end
