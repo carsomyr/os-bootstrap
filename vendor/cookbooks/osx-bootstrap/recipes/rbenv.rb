@@ -50,10 +50,13 @@ versions = versions.map do |version|
     if version == "inherit"
 
   version
-end.select
+end
 
 global_version = ENV["RBENV_VERSION"] \
   if global_version == "inherit"
+
+versions = versions.push(global_version).uniq \
+  if global_version
 
 package "rbenv" do
   action :install
