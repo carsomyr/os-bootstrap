@@ -568,9 +568,6 @@ EOS
             end.join(" ")
           end.join(" \\\n            ")
 
-          ruby_executable = Pathname.new(RbConfig::CONFIG["bindir"]) \
-            + (RbConfig::CONFIG["RUBY_INSTALL_NAME"] + RbConfig::CONFIG["EXEEXT"])
-
           lines = [["--"]]
           lines.push(["--prefix", user_opts[:prefix].realpath.to_s]) \
             if user_opts[:prefix]
@@ -623,6 +620,9 @@ PATH=#{Shellwords.escape((rbenv_dir + "shims").to_s)}"${PATH:+":${PATH}"}"
 # Ensure that SSH authentication works off of the given private key *only*.
 unset -- SSH_AUTH_SOCK
 
+# Explicitly set the `RBENV_VERSION` environment variable to override any local versions set in `.ruby-version` files.
+export -- RBENV_VERSION=$(rbenv global)
+
 # Direct Git to use the provided SSH wrapper instead of standard `ssh`.
 export -- GIT_SSH=#{Shellwords.escape(git_ssh_executable.to_s)}
 
@@ -660,7 +660,7 @@ case "$1" in
             set #{cached_installer_args}
         fi
 
-        exec -- #{Shellwords.escape(ruby_executable.to_s)} \\
+        exec -- #{Shellwords.escape(rbenv_executable.to_s)} exec ruby \\
             -e "$(curl -fsSL -- "https://raw.githubusercontent.com/carsomyr/osx-bootstrap/install/run")" \\
             -- "$@"
         ;;
