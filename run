@@ -648,9 +648,6 @@ case "$1" in
             fi
         fi
 
-        # Workaround: Restore the node JSONs that Chef 12 runs overwrite in a bad way.
-        git checkout -q -- nodes
-
         # Run the Chef client in local mode (`-z`) and point it to the repository's configuration file (by convention).
         exec -- #{Shellwords.escape(rbenv_executable.to_s)} exec #{chef_client_command}
         ;;
