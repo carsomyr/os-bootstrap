@@ -1,7 +1,7 @@
 SITE
   remote: https://supermarket.getchef.com/api/v1
   specs:
-    build-essential (2.2.1)
+    build-essential (2.2.2)
     homebrew (1.12.0)
       build-essential (>= 2.1.2)
 
@@ -9,9 +9,9 @@ GIT
   remote: https://github.com/carsomyr/chef-plist
   path: vendor/cookbooks/plist
   ref: master
-  sha: e21c838e3e897d6b2ffbdb8ad9bacb21f98eee04
+  sha: aacf6c2af72cf3699995618a179ec88f4315cbd4
   specs:
-    plist (0.9.0)
+    plist (0.9.1)
 
 GIT
   remote: https://github.com/fnichol/chef-rbenv
