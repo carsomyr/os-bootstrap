@@ -417,10 +417,8 @@ EOS
         end
 
         namespace :chef do
-          bundle_executable = rbenv_dir + "versions/#{rbenv_version}/bin/bundle"
           chef_client_executable = rbenv_dir + "versions/#{rbenv_version}/bin/chef-client"
-          gemfile_lock = repo_dir + "Gemfile.lock"
-          gemfile_token = prefix + "var/osx-bootstrap/git/.#{repo_dir.basename.to_s}-Gemfile.lock"
+          librarian_chef_executable = rbenv_dir + "versions/#{rbenv_version}/bin/librarian-chef"
           cheffile_lock = repo_dir + "Cheffile.lock"
           cheffile_token = prefix + "var/osx-bootstrap/git/.#{repo_dir.basename.to_s}-Cheffile.lock"
           installed_attribute_json_file = prefix + "var/osx-bootstrap/chef/attributes.json"
@@ -483,44 +481,23 @@ EOS
               if !chef_config_file.exist?
           end
 
-          file bundle_executable.to_s => [:gem_install]
           file chef_client_executable.to_s => [:gem_install]
+          file librarian_chef_executable.to_s => [:gem_install]
 
           desc "Runs `gem install` with the default rbenv Ruby"
           task gem_install: [:check_root, "rbenv:install"] do
             next \
-              if bundle_executable.executable? && chef_client_executable.executable?
+              if chef_client_executable.executable? && librarian_chef_executable.executable?
 
-            pp(:info, "Install the `bundler` and `chef` gems")
+            pp(:info, "Install the `chef` and `librarian-chef` gems")
 
             # Change the directory to avoid picking up any stray `.ruby-version` files.
             Dir.chdir(Pathname.new("/")) do
               rbenv(rbenv_dir) do |rbenv|
-                sh rbenv, "exec", "gem", "install", "--no-document", "bundler", "chef"
+                sh rbenv, "exec", "gem", "install", "--no-document", "chef", "librarian-chef"
                 sh rbenv, "rehash"
               end
             end
-          end
-
-          directory gemfile_token.parent.to_s
-
-          desc "Checks that the `Gemfile.lock` exists"
-          file gemfile_lock.to_s => [repo_dir.to_s, gemfile_token.parent.to_s] do
-            raise "Please provide a `Gemfile.lock` located at #{gemfile_lock.to_s.dump}" \
-              if !gemfile_lock.exist?
-          end
-
-          desc "Runs `bundle install` in the Chef repository"
-          file gemfile_token.to_s => [bundle_executable.to_s, gemfile_lock.to_s] do
-            pp(:info, "Run `bundle install` in the Chef repository")
-
-            Dir.chdir(repo_dir) do
-              rbenv(rbenv_dir) do |rbenv|
-                sh rbenv, "exec", "bundle", "install"
-              end
-            end
-
-            FileUtils.touch(gemfile_token)
           end
 
           directory cheffile_token.parent.to_s
@@ -532,12 +509,12 @@ EOS
           end
 
           desc "Runs `librarian-chef install` in the Chef repository"
-          file cheffile_token.to_s => [bundle_executable.to_s, cheffile_lock.to_s, gemfile_token.to_s] do
+          file cheffile_token.to_s => [librarian_chef_executable.to_s, cheffile_lock.to_s] do
             pp(:info, "Run `librarian-chef install` in the Chef repository")
 
             Dir.chdir(repo_dir) do
               rbenv(rbenv_dir) do |rbenv|
-                sh rbenv, "exec", "bundle", "exec", "librarian-chef", "install"
+                sh rbenv, "exec", "librarian-chef", "install"
               end
             end
 
@@ -545,8 +522,7 @@ EOS
           end
 
           task install: [:install_attributes,
-                         chef_client_executable.to_s, chef_config_file.to_s,
-                         gemfile_token.to_s, cheffile_token.to_s]
+                         chef_client_executable.to_s, chef_config_file.to_s, cheffile_token.to_s]
         end
 
         directory osx_bootstrap_executable.parent.to_s
@@ -639,12 +615,8 @@ case "$1" in
             # Hard reset to the latest commit.
             git reset -q --hard "$sha1_new"
 
-            if [[ -f "Gemfile" ]]; then
-                #{Shellwords.escape(rbenv_executable.to_s)} exec bundle install
-
-                if [[ -f "Cheffile" ]]; then
-                    #{Shellwords.escape(rbenv_executable.to_s)} exec bundle exec librarian-chef install
-                fi
+            if [[ -f "Cheffile" ]]; then
+                #{Shellwords.escape(rbenv_executable.to_s)} exec librarian-chef install
             fi
         fi
 
@@ -691,8 +663,7 @@ We've placed the <nobreak>#{osx_bootstrap_executable.basename.to_s.encode(xml: :
 
 Each invocation will check the repository at\
  <nobreak>#{"#{repo_url} (#{repo_branch})".to_s.encode(xml: :text)}</nobreak>\
- for changes, and, if any, run `bundle install` followed by `bundle exec librarian-chef install` to update Ruby gems\
- and Chef cookbooks, respectively.
+ for changes, and, if any, run `librarian-chef install` to update Chef cookbooks.
 
 The `self-update` subcommand will run this installer with its original command-line arguments and regenerate\
  <nobreak>#{osx_bootstrap_executable.to_s.encode(xml: :text)}</nobreak>. Consequently, the new instance will take on\
