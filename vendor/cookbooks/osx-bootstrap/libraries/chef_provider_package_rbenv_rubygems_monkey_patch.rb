@@ -19,7 +19,7 @@ require "chef/dsl/recipe"
 class ::Chef
   class Provider
     class Package
-      class RbenvRubygems < Chef::Provider::Package::Rubygems
+      class RbenvRubygems < ::Chef::Provider::Package::Rubygems
         # Backport Chef 11 behavior into Chef 12 so that the `rbenv_gem` resource doesn't fail.
         include Chef::DSL::Recipe
       end

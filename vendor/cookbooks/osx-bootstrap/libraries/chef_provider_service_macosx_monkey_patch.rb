@@ -25,7 +25,7 @@ class ::Chef
       # objection "Path had bad ownership/permissions" on `load` and show an incomplete list of loaded services on
       # `list`. See `https://github.com/opscode/chef/blob/11.14.6/lib/chef/provider/service/macosx.rb#L141-171` for
       # details.
-      class Macosx < Chef::Provider::Service::Simple
+      class Macosx < ::Chef::Provider::Service::Simple
         LAUNCHCTL_LIST_PATTERN = Regexp.new("\\A(0|[1-9][0-9]*|-)\t+-?(?:0|[1-9][0-9]*)\t+(.*)\\z")
 
         def set_service_status

@@ -16,6 +16,22 @@
 
 require "pathname"
 
+class ::Chef
+  class Provider
+    class HomebrewCask
+      def load_current_resource
+        @cask = Chef::Resource::HomebrewCask.new(new_resource.name)
+        Chef::Log.debug("Checking whether #{new_resource.name} is installed")
+
+        # Check whether the version as specified in the cask file exists. This is in distinction to the current code,
+        # which checks whether *some* version of the cask exists. Doing so may lead to false negatives under the `brew
+        # update && brew upgrade brew-cask` workflow.
+        @cask.casked shell_out("/usr/local/bin/brew cask list -- #{new_resource.name}").exitstatus == 0
+      end
+    end
+  end
+end
+
 homebrew_paths = [
     "/usr/local/bin", "/usr/local/sbin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"
 ]
