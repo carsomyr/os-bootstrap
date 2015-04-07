@@ -20,6 +20,9 @@ cask :v1 => "xcode" do
   sha256 :no_check
 
   url <%= xcode_url.dump %>
+  name "Xcode"
+  homepage "https://developer.apple.com/xcode/"
+  license :closed
 
   postflight do
     xcode_app_dir = instance_exec(&find_app_dir)
