@@ -52,7 +52,7 @@ ruby_block "refresh `sudo` timestamp" do
     end
 
     recipe.homebrew_cask "java" do
-      action :install
+      action :update
     end
   end
 

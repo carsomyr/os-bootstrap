@@ -17,16 +17,46 @@
 require "pathname"
 
 class ::Chef
+  class Resource
+    class HomebrewCask
+      alias_method :_initialize, :initialize
+
+      def initialize(name, run_context = nil)
+        _initialize(name, run_context)
+
+        @allowed_actions.push(:update)
+      end
+
+      def can_update(arg = nil)
+        set_or_return(
+            :can_update,
+            arg,
+            kind_of: [TrueClass, FalseClass]
+        )
+      end
+    end
+  end
+
   class Provider
     class HomebrewCask
       def load_current_resource
         @cask = Chef::Resource::HomebrewCask.new(new_resource.name)
         Chef::Log.debug("Checking whether #{new_resource.name} is installed")
+        @cask.casked shell_out("/usr/local/bin/brew cask list | grep #{new_resource.name}").exitstatus == 0
 
         # Check whether the version as specified in the cask file exists. This is in distinction to the current code,
-        # which checks whether *some* version of the cask exists. Doing so may lead to false negatives under the `brew
-        # update && brew upgrade brew-cask` workflow.
-        @cask.casked shell_out("/usr/local/bin/brew cask list -- #{new_resource.name}").exitstatus == 0
+        # which checks whether *some* version of the cask exists. Doing enables the resource `update` action in
+        # conjunction with the `brew update && brew upgrade brew-cask` workflow.
+        @cask.can_update shell_out("/usr/local/bin/brew cask list #{new_resource.name}").exitstatus == 0
+      end
+
+      def action_update
+        unless @cask.can_update
+          execute "updating cask #{new_resource.name}" do
+            command "/usr/local/bin/brew cask install #{new_resource.name}"
+            user homebrew_owner
+          end
+        end
       end
     end
   end

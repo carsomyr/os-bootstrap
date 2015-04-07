@@ -20,5 +20,5 @@ include_recipe "osx-bootstrap::postgresql"
 include_recipe "osx-bootstrap::java"
 
 homebrew_cask "rubymine" do
-  action :install
+  action :update
 end

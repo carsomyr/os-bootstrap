@@ -69,7 +69,7 @@ if xcode_url
 
   homebrew_cask "xcode" do
     notifies :run, "ruby_block[run Xcode postinstall]", :immediately
-    action :install
+    action :update
   end
 
   ruby_block "run Xcode postinstall" do
