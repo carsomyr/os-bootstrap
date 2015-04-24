@@ -20,8 +20,14 @@ class ::Chef
   class Provider
     class Package
       class RbenvRubygems < ::Chef::Provider::Package::Rubygems
-        # Backport Chef 11 behavior into Chef 12 so that the `rbenv_gem` resource doesn't fail.
-        include Chef::DSL::Recipe
+        # Fixes the chef-rbenv cookbook issues #98 and #107.
+        def rehash
+          e = ::Chef::Resource::RbenvRehash.new(new_resource.name, run_context)
+          e.root_path rbenv_root
+          e.user rbenv_user if rbenv_user
+          e.action :nothing
+          e.run_action(:run)
+        end
       end
     end
   end
