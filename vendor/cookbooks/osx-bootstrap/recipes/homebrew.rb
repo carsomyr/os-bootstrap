@@ -67,7 +67,7 @@ homebrew_paths = [
 ]
 
 homebrew_install_dirs = [
-    ".", "bin", "etc", "include", "lib", "lib/pkgconfig", "sbin", "share", "var",
+    "bin", "etc", "include", "lib", "lib/pkgconfig", "sbin", "share", "var",
     "var/log", "share/locale", "share/man",
     "share/man/man1", "share/man/man2", "share/man/man3", "share/man/man4",
     "share/man/man5", "share/man/man6", "share/man/man7", "share/man/man8",
