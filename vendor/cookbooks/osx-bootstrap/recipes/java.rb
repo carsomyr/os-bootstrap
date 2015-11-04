@@ -28,7 +28,7 @@ recipe = self
 
 ruby_block "refresh `sudo` timestamp" do
   block do
-    homebrew_user = Etc.getpwuid(recipe.homebrew_owner).name
+    homebrew_user = Etc.getpwnam(recipe.homebrew_owner).name
 
     if recipe.shell_out("brew", "cask", "list", "--", "java").exitstatus == 1 \
       && homebrew_user != "root" \
