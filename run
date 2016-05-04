@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # -*- coding: utf-8 -*-
 #
-# Copyright 2014 Roy Liu
+# Copyright 2014-2016 Roy Liu
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
 # use this file except in compliance with the License. You may obtain a copy of
@@ -307,8 +307,8 @@ EOS
 
         namespace :command_line_tools do
           magic_temp_file = Pathname.new("/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress")
-          clt_bom = Pathname.new("/var/db/receipts/com.apple.pkg.CLTools_Executables.bom")
-          clt_plist = Pathname.new("/var/db/receipts/com.apple.pkg.CLTools_Executables.plist")
+          clt_bom = Pathname.new("/System/Library/receipts/com.apple.pkg.CLTools_Executables.bom")
+          clt_plist = Pathname.new("/System/Library/receipts/com.apple.pkg.CLTools_Executables.plist")
 
           # See `http://macops.ca/installing-command-line-tools-automatically-on-mavericks/`.
           desc "Ensures that the magic file for faking an on-demand installation is in place"
@@ -687,7 +687,7 @@ if __FILE__ == $0
       prefix: Pathname.new("/usr/local"),
       config_dir: Pathname.new("/Volumes/OS X Bootstrap"),
       rbenv_dir: Pathname.new("/opt/rbenv"),
-      rbenv_version: "2.2.1",
+      rbenv_version: "2.3.1",
       repo_url: "https://github.com/carsomyr/osx-bootstrap",
       repo_branch: "master",
       ssh_key_file: nil,
