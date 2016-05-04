@@ -58,13 +58,13 @@ plist_file "SystemConfiguration/preferences" do
   mode 0644
 
   # We need to kill `configd` to prevent something like `hostname` from outputting stale, cached values.
-  notifies :run, "bash[`killall -- configd`]", :immediately
+  notifies :run, "execute[`killall -- configd`]", :immediately
 
   action :update
 end
 
-bash "`killall -- configd`" do
-  code "killall -- configd"
+execute "`killall -- configd`" do
+  command ["killall", "--", "configd"]
   returns [0, 1]
   action :nothing
 end

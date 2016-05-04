@@ -99,7 +99,7 @@ plist_file "com.apple.dashboard" do
   format :binary
 
   # We need to restart `Dock` for the changes to take effect.
-  notifies :run, "bash[`killall -- Dock`]", :immediately
+  notifies :run, "execute[`killall -- Dock`]", :immediately
 
   action :update
 end
@@ -115,7 +115,7 @@ plist_file "com.apple.dock" do
   set "workspaces", true
 
   # We need to restart `Dock` for the changes to take effect.
-  notifies :run, "bash[`killall -- Dock`]", :immediately
+  notifies :run, "execute[`killall -- Dock`]", :immediately
 
   format :binary
   action :update
@@ -137,7 +137,7 @@ plist_file "com.apple.finder" do
   format :binary
 
   # We need to restart `Finder` for the changes to take effect.
-  notifies :run, "bash[`killall -- Finder`]", :immediately
+  notifies :run, "execute[`killall -- Finder`]", :immediately
 
   action :update
 end
@@ -149,7 +149,7 @@ plist_file "com.apple.menuextra.clock" do
   format :binary
 
   # We need to restart `SystemUIServer` for the changes to take effect.
-  notifies :run, "bash[`killall -- SystemUIServer`]", :immediately
+  notifies :run, "execute[`killall -- SystemUIServer`]", :immediately
 
   action :update
 end
@@ -182,20 +182,20 @@ end
 # plists and annoyingly writes them to disk at regular intervals. Also note that the process control is fire and forget:
 # We aren't interested in the results of `killall`.
 
-bash "`killall -- Dock`" do
-  code "killall -- cfprefsd Dock"
+execute "`killall -- Dock`" do
+  command ["killall", "--", "cfprefsd", "Dock"]
   returns [0, 1]
   action :nothing
 end
 
-bash "`killall -- Finder`" do
-  code "killall -- cfprefsd Finder"
+execute "`killall -- Finder`" do
+  command ["killall", "--", "cfprefsd", "Finder"]
   returns [0, 1]
   action :nothing
 end
 
-bash "`killall -- SystemUIServer`" do
-  code "killall -- cfprefsd SystemUIServer"
+execute "`killall -- SystemUIServer`" do
+  command ["killall", "--", "cfprefsd", "SystemUIServer"]
   returns [0, 1]
   action :nothing
 end
