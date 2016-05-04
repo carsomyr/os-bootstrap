@@ -16,51 +16,44 @@
 
 require "pathname"
 
-class ::Chef
-  class Resource
-    class HomebrewCask
-      alias_method :_initialize, :initialize
+homebrew_cask_resource = ::Chef::ResourceResolver.new(node, "homebrew_cask").resolve.send(:prepend, Module.new do
+  def initialize(name, run_context = nil)
+    super(name, run_context)
 
-      def initialize(name, run_context = nil)
-        _initialize(name, run_context)
-
-        @allowed_actions.push(:update)
-      end
-
-      def can_update(arg = nil)
-        set_or_return(
-            :can_update,
-            arg,
-            kind_of: [TrueClass, FalseClass]
-        )
-      end
-    end
+    @allowed_actions.push(:update)
   end
 
-  class Provider
-    class HomebrewCask
-      def load_current_resource
-        @cask = Chef::Resource::HomebrewCask.new(new_resource.name)
-        Chef::Log.debug("Checking whether #{new_resource.name} is installed")
-        @cask.casked shell_out("/usr/local/bin/brew cask list | grep #{new_resource.name}").exitstatus == 0
+  def can_update(arg = nil)
+    set_or_return(
+        :can_update,
+        arg,
+        kind_of: [TrueClass, FalseClass]
+    )
+  end
+end)
 
-        # Check whether the version as specified in the cask file exists. This is in distinction to the current code,
-        # which checks whether *some* version of the cask exists. Doing enables the resource `update` action in
-        # conjunction with the `brew update && brew upgrade brew-cask` workflow.
-        @cask.can_update shell_out("/usr/local/bin/brew cask list #{new_resource.name}").exitstatus == 0
-      end
+::Chef::ProviderResolver.new(node, homebrew_cask_resource.new("dummy"), nil).resolve.send(:prepend, Module.new do
+  def load_current_resource
+    super
 
-      def action_update
-        unless @cask.can_update
-          execute "updating cask #{new_resource.name}" do
-            command "/usr/local/bin/brew cask install #{new_resource.name}"
-            user homebrew_owner
-          end
+    # Check whether the version as specified in the cask file exists. This is in distinction to the current code, which
+    # checks whether *some* version of the cask exists. Doing enables the resource `update` action in conjunction with
+    # the `brew update && brew upgrade brew-cask` workflow.
+    new_resource.can_update shell_out("/usr/local/bin/brew cask list #{new_resource.name}").exitstatus != 0
+  end
+
+  def self.prepended(ancestor)
+    # Declare this action through the LWRP DSL to induce the automagical behavior injected by `use_inline_resources`.
+    ancestor.action :update do
+      if new_resource.can_update
+        execute "updating cask #{new_resource.name}" do
+          command ["/usr/local/bin/brew", "cask", "install", new_resource.name]
+          user homebrew_owner
         end
       end
     end
   end
-end
+end)
 
 homebrew_paths = [
     "/usr/local/bin", "/usr/local/sbin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"
