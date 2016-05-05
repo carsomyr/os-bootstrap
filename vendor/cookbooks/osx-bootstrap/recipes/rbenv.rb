@@ -23,16 +23,18 @@ class << self
   include OsX::Bootstrap
 end
 
-class ::Chef
-  class Provider
-    class RbenvRuby
-      # Override the `rbenv_ruby` LWRP's ruby-build detection, since we are providing it via Homebrew.
-      def ruby_build_missing?
-        false
-      end
-    end
+rbenv_ruby_resource = ::Chef::ResourceResolver.new(node, "rbenv_ruby").resolve
+
+::Chef::ProviderResolver.new(node, rbenv_ruby_resource.new("dummy"), nil).resolve.send(:prepend, Module.new do
+  # Override the `rbenv_ruby` LWRP's ruby-build detection, since we are providing it via Homebrew.
+  def ruby_build_missing?
+    false
   end
-end
+
+  # Override this to be a no-op.
+  def install_ruby_dependencies
+  end
+end)
 
 include_recipe "osx-bootstrap::homebrew"
 

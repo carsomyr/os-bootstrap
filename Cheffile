@@ -21,7 +21,5 @@ cookbook "osx-bootstrap",
 cookbook "plist",
          github: "carsomyr/chef-plist",
          path: "vendor/cookbooks/plist"
-cookbook "rbenv",
-         github: "fnichol/chef-rbenv"
-cookbook "ruby_build",
-         github: "fnichol/chef-ruby_build"
+cookbook "ruby_rbenv",
+         github: "chef-rbenv/ruby_rbenv"
