@@ -243,8 +243,8 @@ module OsX
         repo_dir = opts[:repo_dir]
         chef_config_file = repo_dir + "config/client.rb"
         osx_bootstrap_executable = prefix + "bin/osx-bootstrap"
-        installed_key_file = ssh_key_file && prefix + "var/osx-bootstrap/ssh" + ssh_key_file.basename
-        git_ssh_executable = prefix + "var/osx-bootstrap/ssh/git-ssh"
+        installed_key_file = ssh_key_file && prefix + "var/user_data/ssh" + ssh_key_file.basename
+        git_ssh_executable = prefix + "var/user_data/ssh/git-ssh"
 
         desc "Checks for root privileges"
         task :check_root do
@@ -372,7 +372,7 @@ EOS
         namespace :rbenv do
           ruby_build_dir = (rbenv_dir + "plugins/ruby-build")
           ruby_build_definition = ruby_build_dir + "share/ruby-build/#{rbenv_version}"
-          rbenv_ruby_token = prefix + "var/osx-bootstrap/rbenv/#{rbenv_version}/.ruby"
+          rbenv_ruby_token = prefix + "var/user_data/rbenv/#{rbenv_version}/.ruby"
 
           desc "Clones the rbenv repository into #{rbenv_dir.to_s.dump}"
           directory rbenv_dir.to_s => [:check_root, "command_line_tools:install"] do
@@ -420,9 +420,9 @@ EOS
           chef_client_executable = rbenv_dir + "versions/#{rbenv_version}/bin/chef-client"
           librarian_chef_executable = rbenv_dir + "versions/#{rbenv_version}/bin/librarian-chef"
           cheffile_lock = repo_dir + "Cheffile.lock"
-          cheffile_token = prefix + "var/osx-bootstrap/git/.#{repo_dir.basename.to_s}-Cheffile.lock"
-          installed_attribute_json_file = prefix + "var/osx-bootstrap/chef/attributes.json"
-          installed_attribute_yaml_file = prefix + "var/osx-bootstrap/chef/_attributes.yml"
+          cheffile_token = prefix + "var/user_data/git/.#{repo_dir.basename.to_s}-Cheffile.lock"
+          installed_attribute_json_file = prefix + "var/user_data/chef/attributes.json"
+          installed_attribute_yaml_file = prefix + "var/user_data/chef/_attributes.yml"
 
           if chef_attribute_path
             if chef_attribute_path.directory?
@@ -535,7 +535,7 @@ EOS
           lines = []
           lines.push(["chef-client", "-z"])
           lines.push(["-c", chef_config_file.to_s])
-          lines.push(["-j", (prefix + "var/osx-bootstrap/chef/attributes.json").to_s]) \
+          lines.push(["-j", (prefix + "var/user_data/chef/attributes.json").to_s]) \
             if chef_attribute_path
 
           chef_client_command = lines.map do |args|
@@ -685,7 +685,7 @@ end
 if __FILE__ == $0
   opts = {
       prefix: Pathname.new("/usr/local"),
-      config_dir: Pathname.new("/Volumes/OS X Bootstrap"),
+      config_dir: Pathname.new("/Volumes/User Data"),
       rbenv_dir: Pathname.new("/opt/rbenv"),
       rbenv_version: "2.3.1",
       repo_url: "https://github.com/carsomyr/osx-bootstrap",
@@ -789,7 +789,7 @@ if __FILE__ == $0
   repo_url = opts[:repo_url]
   repo_branch = opts[:repo_branch]
 
-  existing_install_dir = prefix + "var/osx-bootstrap"
+  existing_install_dir = prefix + "var/user_data"
 
   config_dir = existing_install_dir \
     if !config_dir.directory? && existing_install_dir.directory?
@@ -812,7 +812,7 @@ if __FILE__ == $0
   raise "Invalid Git repository URL #{repo_url.dump}" \
     if !m
 
-  opts[:repo_dir] = prefix + "var/osx-bootstrap/git/#{m[1]}-#{Digest::SHA1.hexdigest(repo_url)[0...7]}"
+  opts[:repo_dir] = prefix + "var/user_data/git/#{m[1]}-#{Digest::SHA1.hexdigest(repo_url)[0...7]}"
 
   pp(:heading, <<EOS
 Hello from the OS X Bootstrap installer!
