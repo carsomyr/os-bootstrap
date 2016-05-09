@@ -9,4 +9,8 @@
 #                 ||     ||
 
 # Use this editor for commands like `git` and `sudoedit`.
-export -- EDITOR=<%= Shellwords.escape((prefix + "bin" + editor).to_s) %>
+export -- EDITOR=<%=
+  Shellwords.escape(
+      ([(prefix + "bin" + editor).to_s] + arguments).map { |s| Shellwords.escape(s) }.join(" ")
+  )
+%>

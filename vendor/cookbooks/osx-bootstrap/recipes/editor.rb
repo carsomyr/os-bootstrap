@@ -28,6 +28,7 @@ include_recipe "osx-bootstrap::homebrew"
 recipe = self
 prefix = Pathname.new(node["osx-bootstrap"]["prefix"])
 editor = node["osx-bootstrap"]["user"]["editor"]
+terminal_command_arguments = []
 
 case editor
   when "emacs"
@@ -51,6 +52,8 @@ case editor
       mode 0700
       action :create
     end
+
+    terminal_command_arguments.push("-nw")
   when "vim"
     package "macvim" do
       options "--override-system-vim"
@@ -84,5 +87,6 @@ template (owner_dir + ".profile.d/0002_editor.sh").to_s do
   mode 0644
   helper(:prefix) { prefix }
   helper(:editor) { editor }
+  helper(:arguments) { terminal_command_arguments }
   action :create
 end
