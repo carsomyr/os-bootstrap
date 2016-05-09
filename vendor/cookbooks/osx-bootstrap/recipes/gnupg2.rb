@@ -43,6 +43,14 @@ directory "create the `~/Library/LaunchAgents` directory for #{recipe_full_name}
   action :create
 end
 
+directory "create `.profile.d` for #{recipe_full_name}" do
+  path (recipe.owner_dir + ".profile.d").to_s
+  owner recipe.owner
+  group recipe.owner_group
+  mode 0755
+  action :create
+end
+
 # Install the Bash hook.
 template script_file.to_s do
   source "bash-0001_gnupg2.sh.erb"
@@ -87,13 +95,5 @@ template (owner_dir + ".gnupg/gpg-agent.conf").to_s do
   owner recipe.owner
   group recipe.owner_group
   mode 0600
-  action :create
-end
-
-directory "create `.profile.d` for #{recipe_full_name}" do
-  path (recipe.owner_dir + ".profile.d").to_s
-  owner recipe.owner
-  group recipe.owner_group
-  mode 0755
   action :create
 end
