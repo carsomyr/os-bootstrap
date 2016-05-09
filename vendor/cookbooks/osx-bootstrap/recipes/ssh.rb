@@ -28,7 +28,7 @@ include_recipe "osx-bootstrap::homebrew"
 
 recipe = self
 prefix = Pathname.new(node["osx-bootstrap"]["prefix"])
-osx_bootstrap_ssh_dir = prefix + "var/osx-bootstrap/ssh"
+osx_bootstrap_ssh_dir = prefix + "var/user_data/ssh"
 ssh_dir = owner_dir + ".ssh"
 ssh_key_file = Pathname.glob("#{osx_bootstrap_ssh_dir.to_s}/id_{rsa,dsa,ecdsa}").first
 
