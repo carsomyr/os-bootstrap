@@ -28,38 +28,63 @@ end
 prefs = node["osx-bootstrap"]["preferences"]
 
 plist_file "Apple Global Domain" do
-  # Pressing and holding does not bring up a menu of accented keys.
-  set "ApplePressAndHoldEnabled", false
+  # Enable or disable the menu of accented keys.
+  set "ApplePressAndHoldEnabled", prefs["global"]["press_and_hold_for_character_picker"]
 
-  # Show all file extensions.
-  set "AppleShowAllExtensions", true
+  # Show all file extensions or hide some common ones.
+  set "AppleShowAllExtensions", prefs["global"]["show_all_file_extensions"]
 
   # Set fast key repeat intervals.
   set "InitialKeyRepeat", prefs["global"]["initial_key_repeat"]
   set "KeyRepeat", prefs["global"]["key_repeat"]
 
+  # Enable or disable "Shake mouse pointer to locate" behavior.
+  set "CGDisableCursorLocationMagnification", !prefs["global"]["shake_mouse_pointer_to_locate"]
+
   # Use the function keys as standard function keys.
-  #
-  # Note: I'm not sure how to propagate this change back into the OS, so it's commented out for now. (Logging out and
-  # restarting doesn't work.)
-  # set "com.apple.keyboard.fnState", prefs["global"]["use_standard_function_keys"]
+  set "com.apple.keyboard.fnState", prefs["global"]["use_standard_function_keys"]
 
   # Set a low double click threshold.
   set "com.apple.mouse.doubleClickThreshold", prefs["global"]["double_click_threshold"]
 
-  # Disable mouse acceleration.
-  set "com.apple.mouse.scaling", -1.0
+  # Set mouse and trackpad acceleration; `nil` to disable.
+  pointer_acceleration = prefs["global"]["pointer_acceleration"]
 
-  # Disable trackpad acceleration.
-  set "com.apple.trackpad.scaling", -1.0
+  if pointer_acceleration
+    set "com.apple.mouse.scaling", pointer_acceleration
+    set "com.apple.trackpad.scaling", pointer_acceleration
+  else
+    set "com.apple.mouse.scaling", -1.0
+    set "com.apple.trackpad.scaling", -1.0
+  end
 
   format :binary
   action :update
 end
 
 plist_file "com.apple.ActivityMonitor" do
-  # Show all processes instead of just the user's.
-  set "ShowCategory", 100
+  # Change the kind of processes displayed.
+  set "ShowCategory",
+      case prefs["activity_monitor"]["view_mode"]
+        when "all"
+          100
+        when "all_hierarchical"
+          101
+        when "user"
+          102
+        when "system"
+          103
+        when "other"
+          104
+        when "active"
+          105
+        when "inactive"
+          106
+        when "windowed"
+          107
+        else
+          raise ArgumentError, "Invalid Activity Monitor view mode"
+      end
 
   format :binary
   action :update
@@ -72,29 +97,46 @@ plist_file "com.apple.Terminal" do
   set "Default Window Settings", profile
 
   # New windows and tabs inherit the current window's working directory, while reverting to default settings.
-  set "NewWindowSettingsBehavior", prefs["terminal"]["new_windows_inherit_settings"] ? 2 : 1
-  set "NewWindowWorkingDirectoryBehavior", prefs["terminal"]["new_windows_inherit_cwd"] ? 2 : 1
+  set "NewWindowSettingsBehavior", prefs["terminal"]["inherit_settings_in_new_windows"] ? 2 : 1
+  set "NewWindowWorkingDirectoryBehavior", prefs["terminal"]["inherit_cwd_in_new_windows"] ? 2 : 1
 
   # Set the font to something more readable.
   set "Window Settings", profile, "Font", Plist::Data.new(prefs["terminal"]["font"], false)
 
-  # Don't allow the scrollback buffer to grow indefinitely, and set a generous upper limit.
-  set "Window Settings", profile, "ShouldLimitScrollback", true
-  set "Window Settings", profile, "ScrollbackLines", 65536
+  # Set the scrollback limit. Useful for programs that log to `STDOUT`.
+  scrollback_limit = prefs["terminal"]["scrollback_limit"]
+
+  if scrollback_limit
+    set "Window Settings", profile, "ShouldLimitScrollback", 1
+    set "Window Settings", profile, "ScrollbackLines", scrollback_limit
+  else
+    set "Window Settings", profile, "ShouldLimitScrollback", 0
+    set "Window Settings", profile, "ScrollbackLines", -1
+  end
 
   # Make the terminal window 50% wider.
   set "Window Settings", profile, "columnCount", prefs["terminal"]["n_columns"]
 
-  # Shells don't linger upon exit.
-  set "Window Settings", profile, "shellExitAction", 1
+  # Set the window action to take when the shell exits.
+  set "Window Settings", profile, "shellExitAction",
+      case prefs["terminal"]["window_action_on_shell_exit"]
+        when "close"
+          0
+        when "close_if_clean_exit"
+          1
+        when "nothing"
+          2
+        else
+          raise ArgumentError, "Invalid Terminal window action on shell exit"
+      end
 
   format :binary
   action :update
 end
 
 plist_file "com.apple.dashboard" do
-  # Disable the useless Dashboard.
-  set "mcx-disabled", true
+  # Enable or disable the Dashboard.
+  set "mcx-disabled", !prefs["dashboard"]["enable"]
 
   format :binary
 
@@ -111,8 +153,8 @@ plist_file "com.apple.dock" do
   # Make the tiles bigger.
   set "tilesize", prefs["dock"]["tile_size"].to_f
 
-  # Enable Spaces.
-  set "workspaces", true
+  # Enable or disable Spaces.
+  set "workspaces", prefs["dock"]["enable_workspaces"]
 
   # We need to restart `Dock` for the changes to take effect.
   notifies :run, "execute[`killall -- Dock`]", :immediately
@@ -124,15 +166,36 @@ end
 plist_file "com.apple.finder" do
   icon_size = prefs["finder"]["icon_size"].to_f
 
+  # Show all files or hide some typical ones (like those beginning with `.`).
+  set "AppleShowAllFiles", prefs["finder"]["show_all_files"]
+
   # Make the icons bigger.
   set "DesktopViewSettings", "IconViewSettings", "iconSize", icon_size
   set "StandardViewSettings", "IconViewSettings", "iconSize", icon_size
 
-  # New Finder windows show the user's home directory.
-  set "NewWindowTarget", "PfHm"
+  # Set the new window view behavior.
+  set "NewWindowTarget",
+      case prefs["finder"]["new_window_view_mode"]
+        when "computer"
+          "PfCm"
+        when "boot_volume"
+          "PfVo"
+        when "user_home"
+          "PfHm"
+        when "user_desktop"
+          "PfDe"
+        when "user_documents"
+          "PfDo"
+        when "user_icloud"
+          "PfID"
+        when "user_all_files"
+          "PfAF"
+        else
+          raise ArgumentError, "Invalid Finder new window view mode"
+      end
 
-  # Don't ask about changing file extensions.
-  set "FXEnableExtensionChangeWarning", false
+  # Enable or disable the warning about changing file extensions.
+  set "FXEnableExtensionChangeWarning", prefs["finder"]["warn_about_file_extension_changes"]
 
   format :binary
 
@@ -155,24 +218,25 @@ plist_file "com.apple.menuextra.clock" do
 end
 
 plist_file "com.apple.screencapture" do
-  # Prevent screenshots from saving with over-the-top drop shadows.
-  set "disable-shadow", true
+  # Enable or disable drop shadows in screenshots.
+  set "disable-shadow", !prefs["screen_capture"]["enable_drop_shadows"]
 
   format :binary
   action :update
 end
 
 plist_file "com.apple.symbolichotkeys" do
-  # Disable the VoiceOver hotkey.
-  set "AppleSymbolicHotKeys", "59", "enabled", false
+  # Enable or disable the VoiceOver hotkey.
+  set "AppleSymbolicHotKeys", "59", "enabled", prefs["symbolic_hotkeys"]["enable_voice_over"]
 
   format :binary
   action :update
 end
 
 plist_file "com.apple.systempreferences" do
-  # Time Machine shows network volumes other than Time Capsule.
-  set "TMShowUnsupportedNetworkVolumes", true
+  # Show or hide network volumes not recognized by Time Machine. Setting this to `true` prevents Time Machine from
+  # wanting to take over said volumes.
+  set "TMShowUnsupportedNetworkVolumes", prefs["system_preferences"]["show_time_machine_unsupported_volumes"]
 
   format :binary
   action :update
