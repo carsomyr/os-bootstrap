@@ -16,9 +16,9 @@ GIT
   remote: https://github.com/carsomyr/chef-plist
   path: vendor/cookbooks/plist
   ref: master
-  sha: aacf6c2af72cf3699995618a179ec88f4315cbd4
+  sha: be7b3e2bb6c57c301c6bfa7381951e92633d8429
   specs:
-    plist (0.9.1)
+    plist (0.9.3)
 
 GIT
   remote: https://github.com/chef-rbenv/ruby_rbenv
