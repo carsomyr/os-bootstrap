@@ -219,10 +219,14 @@ end
 
 plist_file "com.apple.screencapture" do
   # Enable or disable drop shadows in screenshots.
-  set "disable-shadow", !prefs["screen_capture"]["enable_drop_shadows"]
+  content("disable-shadow" => !prefs["screen_capture"]["enable_drop_shadows"])
 
   format :binary
-  action :update
+
+  # We need to restart `SystemUIServer` for the changes to take effect.
+  notifies :run, "execute[`killall -- SystemUIServer`]", :immediately
+
+  action :create
 end
 
 plist_file "com.apple.symbolichotkeys" do
