@@ -15,7 +15,6 @@
 # the License.
 
 require "base64"
-require "chef/shell_out"
 require "pathname"
 require "socket"
 

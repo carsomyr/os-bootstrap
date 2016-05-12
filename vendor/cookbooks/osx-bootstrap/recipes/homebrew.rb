@@ -16,6 +16,8 @@
 
 require "pathname"
 
+prefix = Pathname.new(node["osx-bootstrap"]["prefix"])
+
 homebrew_cask_resource = ::Chef::ResourceResolver.new(node, "homebrew_cask").resolve.send(:prepend, Module.new do
   def initialize(name, run_context = nil)
     super(name, run_context)
@@ -33,21 +35,23 @@ homebrew_cask_resource = ::Chef::ResourceResolver.new(node, "homebrew_cask").res
 end)
 
 ::Chef::ProviderResolver.new(node, homebrew_cask_resource.new("dummy"), nil).resolve.send(:prepend, Module.new do
-  def load_current_resource
-    super
+  define_method(:load_current_resource) do
+    super()
 
     # Check whether the version as specified in the cask file exists. This is in distinction to the current code, which
     # checks whether *some* version of the cask exists. Doing enables the resource `update` action in conjunction with
     # the `brew update && brew upgrade brew-cask` workflow.
-    new_resource.can_update shell_out("/usr/local/bin/brew cask list #{new_resource.name}").exitstatus != 0
+    new_resource.can_update(
+        shell_out((prefix + "bin/brew").to_s, "cask", "list", "--", new_resource.name).exitstatus != 0
+    )
   end
 
-  def self.prepended(ancestor)
+  define_singleton_method(:prepended) do |ancestor|
     # Declare this action through the LWRP DSL to induce the automagical behavior injected by `use_inline_resources`.
     ancestor.action :update do
       if new_resource.can_update
         execute "updating cask #{new_resource.name}" do
-          command ["/usr/local/bin/brew", "cask", "install", new_resource.name]
+          command [(prefix + "bin/brew").to_s, "cask", "install", "--", new_resource.name]
           user homebrew_owner
         end
       end

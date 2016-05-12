@@ -14,8 +14,8 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-require "chef/shell_out"
 require "etc"
+require "pathname"
 
 class << self
   include Chef::Mixin::ShellOut
@@ -25,12 +25,13 @@ end
 include_recipe "osx-bootstrap::homebrew"
 
 recipe = self
+prefix = Pathname.new(node["osx-bootstrap"]["prefix"])
 
 ruby_block "refresh `sudo` timestamp" do
   block do
     homebrew_user = Etc.getpwnam(recipe.homebrew_owner).name
 
-    if recipe.shell_out("brew", "cask", "list", "--", "java").exitstatus == 1 \
+    if recipe.shell_out((prefix + "bin/brew").to_s, "cask", "list", "--", "java").exitstatus == 1 \
       && homebrew_user != "root" \
       && STDIN.tty?
       child_pid = fork do
