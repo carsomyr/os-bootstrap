@@ -1,15 +1,6 @@
 {
   "name": "workstation",
   "run_list": [
-    "recipe[osx-bootstrap::homebrew]",
-    "recipe[osx-bootstrap::ssh]",
-    "recipe[osx-bootstrap::git]",
-    "recipe[osx-bootstrap::bash]",
-    "recipe[osx-bootstrap::gnupg2]",
-    "recipe[osx-bootstrap::editor]",
-    "recipe[osx-bootstrap::xcode]",
-    "recipe[osx-bootstrap::preferences]",
-    "recipe[osx-bootstrap::machine]",
-    "recipe[osx-bootstrap::includes]"
+    "recipe[osx-bootstrap]"
   ]
 }

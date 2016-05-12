@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2014 Roy Liu
+# Copyright 2014-2016 Roy Liu
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
 # use this file except in compliance with the License. You may obtain a copy of
@@ -14,11 +14,5 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-include_recipe "osx-bootstrap::homebrew"
 include_recipe "osx-bootstrap::rbenv"
 include_recipe "osx-bootstrap::postgresql"
-include_recipe "osx-bootstrap::java"
-
-homebrew_cask "rubymine" do
-  action :update
-end

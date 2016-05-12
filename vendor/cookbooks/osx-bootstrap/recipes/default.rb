@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2014 Roy Liu
+# Copyright 2014-2016 Roy Liu
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
 # use this file except in compliance with the License. You may obtain a copy of
@@ -13,3 +13,12 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations under
 # the License.
+
+include_recipe "osx-bootstrap::homebrew"
+include_recipe "osx-bootstrap::ssh"
+include_recipe "osx-bootstrap::git"
+include_recipe "osx-bootstrap::bash"
+include_recipe "osx-bootstrap::xcode"
+include_recipe "osx-bootstrap::preferences"
+include_recipe "osx-bootstrap::machine"
+include_recipe "osx-bootstrap::includes"
