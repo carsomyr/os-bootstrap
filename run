@@ -182,28 +182,30 @@ module OsX
           end
         end
 
-        # Recursively traverses a directory of `_attributes.yml` files and merges them into one.
-        def attributes_from_dir(dir)
-          attribute_file = dir + "_attributes.yml"
+        # Extracts Chef attributes from the given YAML file or directory hierarchy of files.
+        def attributes_from_path(path)
+          attributes = {}
+          attribute_files = []
 
-          if attribute_file.file?
-            attribute_files = [attribute_file]
-            attributes = YAML.load(attribute_file.open("rb") { |f| f.read }) || {}
+          if path.directory? && !path.symlink?
+            path.children.each do |child|
+              child_attributes, child_attribute_files = attributes_from_path(child)
 
-            dir.children.select do |dir|
-              dir.directory? && !dir.symlink?
-            end.each do |child_dir|
-              child_attributes, child_attribute_files = attributes_from_dir(child_dir)
+              if child.directory?
+                child_key = child.basename.to_s
+                attributes[child_key] = deep_merge(attributes[child_key] || {}, child_attributes)
+              else
+                attributes = deep_merge(attributes, child_attributes)
+              end
 
-              child_key = child_dir.basename.to_s
-              attributes[child_key] = deep_merge(attributes[child_key] || {}, child_attributes)
               attribute_files += child_attribute_files
             end
-
-            [attributes, attribute_files]
-          else
-            [{}, []]
+          elsif path.file? && path.extname == ".yml"
+            attributes = YAML.load(path.open("rb") { |f| f.read }) || {}
+            attribute_files.push(path)
           end
+
+          [attributes, attribute_files]
         end
 
         # Deep merges the given `Hash`es.
@@ -422,23 +424,14 @@ EOS
           cheffile_lock = repo_dir + "Cheffile.lock"
           cheffile_token = prefix + "var/user_data/git/.#{repo_dir.basename.to_s}-Cheffile.lock"
           installed_attribute_json_file = prefix + "var/user_data/chef/attributes.json"
-          installed_attribute_yaml_file = prefix + "var/user_data/chef/_attributes.yml"
+          installed_attribute_yaml_file = prefix + "var/user_data/chef/attributes.yml"
 
           if chef_attribute_path
-            if chef_attribute_path.directory?
-              attributes, deps = attributes_from_dir(chef_attribute_path)
-              deps = deps.map { |dep| dep.to_s }
+            raise "No Chef attributes found at #{chef_attribute_path.to_s.dump}" \
+              if !chef_attribute_path.exist?
 
-              deps.each { |dep| file dep.to_s }
-            elsif chef_attribute_path.file?
-              attributes = YAML.load(chef_attribute_path.open("rb") { |f| f.read }) || {}
-              deps = [chef_attribute_path.to_s]
-
-              file chef_attribute_path.to_s
-            else
-              raise "No Chef attribute file found at #{chef_attribute_path.to_s.dump}" \
-                if !chef_attribute_path.file?
-            end
+            attributes, deps = attributes_from_path(chef_attribute_path)
+            deps = deps.map { |dep| dep.to_s }.each { |dep| file dep }
 
             directory installed_attribute_json_file.parent.to_s
 
@@ -728,7 +721,7 @@ if __FILE__ == $0
     end
 
     opt_spec.on("-c", "--chef-attribute-path CHEF_ATTRIBUTE_PATH", "provide a `chef-client` attribute file in YAML or" \
-                " as a directory hierarchy of `_attributes.yml` files") do |chef_attribute_path|
+                " as a directory hierarchy of files") do |chef_attribute_path|
       user_opts[:chef_attribute_path] = Pathname.new(chef_attribute_path)
     end
 
@@ -799,10 +792,10 @@ if __FILE__ == $0
     opts[:ssh_key_file] = ssh_key_file
   end
 
-  default_attribute_file = config_dir + "chef/_attributes.yml"
+  chef_attribute_dir = config_dir + "chef"
 
-  if !chef_attribute_path && default_attribute_file.file?
-    chef_attribute_path = default_attribute_file.parent
+  if !chef_attribute_path && chef_attribute_dir.directory?
+    chef_attribute_path = chef_attribute_dir
     opts[:chef_attribute_path] = chef_attribute_path
   end
 
