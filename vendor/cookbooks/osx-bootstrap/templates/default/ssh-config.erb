@@ -17,6 +17,13 @@ Host github.com github
     # one held by `ssh-agent`.
     IdentitiesOnly yes
 
+# Private networks
+
+Host 192.168.*.*
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+    LogLevel QUIET
+
 # Any host
 
 Host *
