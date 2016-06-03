@@ -173,6 +173,15 @@ module OsX
           end
         end
 
+        # Sets up a special environment for Git's SSH protocol.
+        def git_ssh(git_ssh_executable, &block)
+          # Set environment variables that direct Git to use the provided SSH wrapper, and restore them afterwards.
+          ENV["SSH_AUTH_SOCK"], ENV["GIT_SSH"] = [ENV["SSH_AUTH_SOCK"], ENV["GIT_SSH"]].tap do
+            ENV["SSH_AUTH_SOCK"], ENV["GIT_SSH"] = [nil, git_ssh_executable.to_s]
+            block.call
+          end
+        end
+
         # Pretty prints the given message.
         def pp(type = nil, message = nil)
           if type
@@ -461,9 +470,7 @@ EOS
           directory repo_dir.to_s => [:check_root, "ssh:install", "command_line_tools:install"] do
             pp(:info, "Clone the Chef repository at #{repo_url} (#{repo_branch})")
 
-            # Set environment variables that direct Git to use the provided SSH wrapper, and restore them afterwards.
-            ENV["SSH_AUTH_SOCK"], ENV["GIT_SSH"] = [ENV["SSH_AUTH_SOCK"], ENV["GIT_SSH"]].tap do
-              ENV["SSH_AUTH_SOCK"], ENV["GIT_SSH"] = [nil, git_ssh_executable.to_s]
+            git_ssh(git_ssh_executable) do
               sh "git", "clone", "-b", repo_branch, "--", repo_url, repo_dir.to_s
             end
           end
@@ -502,12 +509,14 @@ EOS
           end
 
           desc "Runs `librarian-chef install` in the Chef repository"
-          file cheffile_token.to_s => [librarian_chef_executable.to_s, cheffile_lock.to_s] do
+          file cheffile_token.to_s => ["ssh:install", librarian_chef_executable.to_s, cheffile_lock.to_s] do
             pp(:info, "Run `librarian-chef install` in the Chef repository")
 
             Dir.chdir(repo_dir) do
               rbenv(rbenv_dir) do |rbenv|
-                sh rbenv, "exec", "librarian-chef", "install"
+                git_ssh(git_ssh_executable) do
+                  sh rbenv, "exec", "librarian-chef", "install"
+                end
               end
             end
 
