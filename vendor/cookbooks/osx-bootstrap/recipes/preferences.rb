@@ -134,18 +134,6 @@ plist_file "com.apple.Terminal" do
   action :update
 end
 
-plist_file "com.apple.dashboard" do
-  # Enable or disable the Dashboard.
-  set "mcx-disabled", !prefs["dashboard"]["enable"]
-
-  format :binary
-
-  # We need to restart `Dock` for the changes to take effect.
-  notifies :run, "execute[`killall -- Dock`]", :immediately
-
-  action :update
-end
-
 plist_file "com.apple.dock" do
   # The Dock appears on the left-hand side.
   set "orientation", prefs["dock"]["orientation"]
@@ -207,14 +195,18 @@ end
 
 plist_file "com.apple.menuextra.clock" do
   # Set the clock format to something more useful.
-  set "DateFormat", prefs["clock"]["format"]
+  content(
+      "DateFormat" => prefs["clock"]["format"],
+      "FlashDateSeparators" => prefs["clock"]["flash_date_separators"],
+      "IsAnalog" => prefs["clock"]["is_analog"]
+  )
 
   format :binary
 
   # We need to restart `SystemUIServer` for the changes to take effect.
   notifies :run, "execute[`killall -- SystemUIServer`]", :immediately
 
-  action :update
+  action :create
 end
 
 plist_file "com.apple.screencapture" do

@@ -15,8 +15,9 @@
 # the License.
 
 default["osx-bootstrap"]["preferences"]["activity_monitor"]["view_mode"] = "all"
+default["osx-bootstrap"]["preferences"]["clock"]["flash_date_separators"] = false
 default["osx-bootstrap"]["preferences"]["clock"]["format"] = "EEE MMM d  H:mm"
-default["osx-bootstrap"]["preferences"]["dashboard"]["enable"] = false
+default["osx-bootstrap"]["preferences"]["clock"]["is_analog"] = false
 default["osx-bootstrap"]["preferences"]["dock"]["enable_workspaces"] = true
 default["osx-bootstrap"]["preferences"]["dock"]["orientation"] = "left"
 default["osx-bootstrap"]["preferences"]["dock"]["tile_size"] = 60
