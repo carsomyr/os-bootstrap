@@ -21,6 +21,7 @@ require "shellwords"
 
 class << self
   include OsX::Bootstrap
+  include OsX::Bootstrap::Rbenv
 end
 
 rbenv_ruby_resource = ::Chef::ResourceResolver.new(node, "rbenv_ruby").resolve
@@ -95,17 +96,33 @@ directory rbenv_root.to_s do
 end
 
 versions.each do |version|
-  rbenv_ruby version do
-    user recipe.owner
-    root_path rbenv_root.to_s
-    action :install
+  ruby_block "install rbenv Ruby version #{version}" do
+    block do
+      recipe.as_user(recipe.owner) do
+        recipe.rbenv_ruby version do
+          user recipe.owner
+          root_path rbenv_root.to_s
+          action :nothing
+        end.run_action(:install)
+      end
+    end
+
+    action :run
   end
 end
 
 if global_version
-  rbenv_global global_version do
-    user recipe.owner
-    root_path rbenv_root.to_s
-    action :create
+  ruby_block "set the global rbenv Ruby version #{global_version}" do
+    block do
+      recipe.as_user(recipe.owner) do
+        recipe.rbenv_global global_version do
+          user recipe.owner
+          root_path rbenv_root.to_s
+          action :nothing
+        end.run_action(:create)
+      end
+    end
+
+    action :run
   end
 end

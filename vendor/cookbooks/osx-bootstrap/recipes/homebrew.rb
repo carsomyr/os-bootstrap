@@ -16,6 +16,11 @@
 
 require "pathname"
 
+class << self
+  include OsX::Bootstrap
+end
+
+recipe = self
 prefix = Pathname.new(node["osx-bootstrap"]["prefix"])
 
 homebrew_cask_resource = ::Chef::ResourceResolver.new(node, "homebrew_cask").resolve.send(:prepend, Module.new do
@@ -64,13 +69,20 @@ homebrew_paths = [
 ]
 
 homebrew_install_dirs = [
-    "bin", "etc", "include", "lib", "lib/pkgconfig", "sbin", "share", "var",
+    "bin", "etc", "include", "lib", "lib/pkgconfig", "sbin", "share", "var", "opt",
     "var/log", "share/locale", "share/man",
     "share/man/man1", "share/man/man2", "share/man/man3", "share/man/man4",
     "share/man/man5", "share/man/man6", "share/man/man7", "share/man/man8",
     "share/info", "share/doc", "share/aclocal",
-    "Library", "Library/Taps"
+    "Caskroom", "Cellar", "Frameworks", "Homebrew", "Homebrew/Library", "Homebrew/Library/Taps"
 ].map { |dir_name| Pathname.new("/usr/local") + dir_name }
+
+zsh_install_dirs = [
+    "share/zsh", "share/zsh/site-functions"
+].map { |dir_name| Pathname.new("/usr/local") + dir_name }
+
+homebrew_cache_dir = owner_dir + "Library/Caches/Homebrew"
+homebrew_old_cache_dir = Pathname.new("/Library/Caches/Homebrew")
 
 # Rearrange the `PATH` environment variable so that Homebrew's directories are searched first.
 ruby_block "rearrange `ENV[\"PATH\"]`" do
@@ -116,6 +128,33 @@ homebrew_install_dirs.each do |dir|
     mode 0775
     action :create
   end
+end
+
+zsh_install_dirs.each do |dir|
+  directory dir.to_s do
+    owner recipe.owner
+    group "admin"
+    mode 0755
+    action :create
+  end
+end
+
+directory homebrew_cache_dir.to_s do
+  owner recipe.owner
+  group "admin"
+  mode 0775
+
+  # Create the old cache directory, but only once and tied to the creation of this one.
+  notifies :create, "directory[#{homebrew_old_cache_dir.to_s}]", :immediately
+
+  action :create
+end
+
+directory homebrew_old_cache_dir.to_s do
+  owner recipe.owner
+  group "admin"
+  mode 0775
+  action :nothing
 end
 
 # Install Homebrew.

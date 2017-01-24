@@ -26,13 +26,15 @@ include_recipe "osx-bootstrap::homebrew"
 
 recipe = self
 prefix = Pathname.new(node["osx-bootstrap"]["prefix"])
+homebrew_dir = prefix + "Homebrew"
 xcode_url = node["osx-bootstrap"]["xcode"]["url"]
 volume_dir = Pathname.new(node["osx-bootstrap"]["volume_root"])
-caskroom_dir = Pathname.new(node["osx-bootstrap"]["homebrew"]["caskroom_path"])
-xcode_dmg_file = volume_dir && Pathname.glob("#{volume_dir.to_s}/files/xcode*.dmg").last
-xcode_url ||= "file://#{URI.escape(xcode_dmg_file.to_s)}" if xcode_dmg_file && xcode_dmg_file.file?
-cask_version_pattern = Regexp.new("xcode([-_].+|)\\.dmg")
-cask_version = (xcode_dmg_file && cask_version_pattern.match(xcode_dmg_file.basename.to_s)[1][1..-1]) || "latest"
+caskroom_dir = prefix + "Caskroom"
+xcode_archive_file = volume_dir && Pathname.glob("#{volume_dir.to_s}/files/[Xx]code*.{dmg,xip}").last
+xcode_url ||= "file://#{URI.escape(xcode_archive_file.to_s)}" if xcode_archive_file && xcode_archive_file.file?
+cask_version_pattern = Regexp.new("[Xx]code([-_].+|)\\.(?:dmg|xip)")
+cask_version = (xcode_archive_file && cask_version_pattern.match(xcode_archive_file.basename.to_s)[1][1..-1]) ||
+    "latest"
 
 # The `plist_file` LWRP needs Nokogiri's XML parsing and querying capabilities.
 chef_gem "install `nokogiri` for #{recipe_full_name}" do
@@ -48,7 +50,7 @@ if xcode_url
   ["Library/Taps/osx-bootstrap",
    "Library/Taps/osx-bootstrap/homebrew-xcode",
    "Library/Taps/osx-bootstrap/homebrew-xcode/Casks"].each do |dir_name|
-    directory (prefix + dir_name).to_s do
+    directory (homebrew_dir + dir_name).to_s do
       owner recipe.owner
       group recipe.owner_group
       mode 0755
@@ -56,7 +58,7 @@ if xcode_url
     end
   end
 
-  template (prefix + "Library/Taps/osx-bootstrap/homebrew-xcode/Casks/xcode.rb").to_s do
+  template (homebrew_dir + "Library/Taps/osx-bootstrap/homebrew-xcode/Casks/xcode.rb").to_s do
     source "xcode-xcode.rb.erb"
     owner recipe.owner
     group recipe.owner_group
@@ -87,6 +89,8 @@ if xcode_url
       major_version = xcode_version.split(".", -1)[0]
 
       case major_version
+        when "8"
+          license_version = "EA1421"
         when "7"
           license_version = "EA1327"
         when "6"
