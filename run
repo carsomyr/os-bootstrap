@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # -*- coding: utf-8 -*-
 #
-# Copyright 2014-2016 Roy Liu
+# Copyright 2014-2017 Roy Liu
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
 # use this file except in compliance with the License. You may obtain a copy of
@@ -16,6 +16,7 @@
 # the License.
 
 require "digest"
+require "etc"
 require "fileutils"
 require "json"
 require "optparse"
@@ -160,6 +161,150 @@ module OsX
     # Some helpers to reduce boilerplate in Rake tasks.
     module RakeHelpers
       module InstanceMethods
+        # Runs the given block as a particular user and group.
+        def as_user(user = ENV["SUDO_USER"], group = nil, &block)
+          _, exit_status = Process.waitpid2(fork do
+            Process.gid = Process.egid = Etc.getgrnam(group).gid \
+              if group
+
+            Process.uid = Process.euid = Etc.getpwnam(user).uid \
+              if user
+
+            block.call
+
+            exit!(0)
+          end)
+
+          raise RuntimeError, "Child process exited with nonzero status" \
+            if exit_status != 0
+        end
+
+        # Normalize the given target-dependency specification.
+        def normalize_target_deps(target_deps)
+          if target_deps.is_a?(Hash)
+            raise ArgumentError, "Invalid target-dependency specification" \
+              if target_deps.size != 1
+
+            target, deps = target_deps.each_pair.first
+          else
+            target, deps = target_deps, []
+          end
+
+          deps = [deps] \
+            if !deps.is_a?(Array)
+
+          [target, deps]
+        end
+
+        # Creates a writeable directory along with any missing parent directories.
+        def writeable_directory(target_deps)
+          target, deps = normalize_target_deps(target_deps)
+
+          return nil \
+            if target.directory? || Rake::Task.task_defined?(target.to_s)
+
+          raise "Target must be a directory" \
+            if target.exist?
+
+          parent_task = writeable_directory target.parent => deps
+
+          if parent_task
+            task_deps = deps + [parent_task]
+          else
+            task_deps = deps
+          end
+
+          directory target.to_s => task_deps do
+            as_user("root") do
+              mkdir target
+
+              # Set group writeability and ownership to the `admin` group, which the user is presumed to be a member of.
+              chmod 0775, target
+              chown nil, "admin", target
+            end
+          end
+        end
+
+        # Creates a file along with any missing parent directories.
+        def with_parent_directory(target_deps, &block)
+          target, deps = normalize_target_deps(target_deps)
+
+          parent_task = writeable_directory target.parent => deps
+
+          if parent_task
+            task_deps = deps + [parent_task]
+          else
+            task_deps = deps
+          end
+
+          file target => task_deps, &block
+        end
+
+        # Installs the command-line tools package via the `softwareupdate` tool.
+        def softwareupdate_install
+          # Ensures that the magic file for faking an on-demand installation is in place. See
+          # `http://macops.ca/installing-command-line-tools-automatically-on-mavericks/`.
+          magic_temp_file = Pathname.new("/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress")
+
+          pp(:info, "Run `softwareupdate` to get the manifest of available updates")
+
+          touch magic_temp_file
+
+          begin
+            sh "softwareupdate", "-l"
+
+            # After `softwareupdate` has run, look in the plist of recommended updates. Some sort of command-line tools
+            # package should be there.
+
+            xml = IO.popen(["plutil", "-convert", "xml1", "-o", "-", "--",
+                            "/Library/Preferences/com.apple.SoftwareUpdate.plist"]) do |io|
+              io.read
+            end
+
+            exit_status = $?.exitstatus
+
+            raise "`plutil` returned nonzero exit status #{exit_status}" \
+              if exit_status != 0
+
+            # Create an XPath query for the package information.
+            doc = REXML::Document.new(xml)
+            node = doc.elements["/plist" \
+                  "/dict" \
+                  "/key[text()=\"RecommendedUpdates\"]" \
+                  "/following::array[position()=1]" \
+                  "/dict[key[text()=\"Display Name\"]" \
+                  "/following::string[position()=1 and starts-with(text(), \"Command Line \")]]"
+            ]
+
+            raise "Could not find the necessary metadata for installing the command-line tools package" \
+              if !node
+
+            identifier = node.elements["key[text()=\"Identifier\"]/following::string[position()=1]/text()"]
+            display_version = node.elements["key[text()=\"Display Version\"]/following::string[position()=1]/text()"]
+
+            pp(:info, "Install #{identifier} via `softwareupdate`")
+
+            sh "softwareupdate", "-i", "#{identifier}-#{display_version}"
+          ensure
+            rm magic_temp_file
+          end
+        end
+
+        # Installs the given gem.
+        def gem_install(rbenv_root, gem)
+          pp(:info, "Install the `#{gem}` gem")
+
+          as_user do
+            # Change the directory to avoid picking up any stray `.ruby-version` files.
+            cd Pathname.new("/") do
+              rbenv(rbenv_root) do |rbenv|
+                sh rbenv, "exec", "gem", "install", "--no-document", gem
+                sh rbenv, "rehash"
+              end
+            end
+          end
+        end
+
         # Sets up a special environment for rbenv to run in.
         def rbenv(rbenv_root, &block)
           # Set special values for certain rbenv environment variables, run the given block, and restore them
@@ -241,62 +386,57 @@ module OsX
     end
 
     @define_rake_tasks = Proc.new do |opts, user_opts|
-      main_task = nil
+      prefix = opts[:prefix]
+      ssh_key_file = opts[:ssh_key_file]
+      chef_attribute_path = opts[:chef_attribute_path]
+      rbenv_dir = opts[:rbenv_dir]
+      rbenv_version = opts[:rbenv_version]
+      repo_url = opts[:repo_url]
+      repo_branch = opts[:repo_branch]
+      repo_dir = opts[:repo_dir]
+      osx_bootstrap_executable = prefix + "bin/osx-bootstrap"
 
       namespace :osx_bootstrap do
-        prefix = opts[:prefix]
-        ssh_key_file = opts[:ssh_key_file]
-        chef_attribute_path = opts[:chef_attribute_path]
-        rbenv_dir = opts[:rbenv_dir]
-        rbenv_version = opts[:rbenv_version]
-        repo_url = opts[:repo_url]
-        repo_branch = opts[:repo_branch]
-        repo_dir = opts[:repo_dir]
+        user_data_dir = prefix + "var/user_data"
+        git_ssh_executable = user_data_dir + "ssh/git-ssh"
+        ssh_installed = user_data_dir + "ssh/.installed.rake"
+        command_line_tools_installed = user_data_dir + "command_line_tools/.installed.rake"
+        rbenv_installed = user_data_dir + "rbenv/.installed-#{rbenv_version}.rake"
         chef_config_file = repo_dir + "config/client.rb"
-        osx_bootstrap_executable = prefix + "bin/osx-bootstrap"
-        installed_key_file = ssh_key_file && prefix + "var/user_data/ssh" + ssh_key_file.basename
-        git_ssh_executable = prefix + "var/user_data/ssh/git-ssh"
-
-        desc "Checks for root privileges"
-        task :check_root do
-          raise "Root privileges are needed" \
-            if Process.euid != 0
-        end
+        chef_installed = user_data_dir + "chef/.installed-#{repo_dir.basename.to_s}.rake"
 
         namespace :ssh do
           if ssh_key_file
-            file ssh_key_file.to_s do
-              raise "No SSH private key file found at #{ssh_key_file.to_s.dump}" \
-                if !ssh_key_file.file?
-            end
+            installed_key_file = user_data_dir + "ssh" + ssh_key_file.basename
 
             if installed_key_file != ssh_key_file
-              directory installed_key_file.parent.to_s
-
-              file installed_key_file.to_s => [ssh_key_file.to_s, installed_key_file.parent.to_s] do
+              with_parent_directory installed_key_file => ssh_key_file do
                 pp(:info, "Write the SSH private key file to #{installed_key_file.to_s}")
 
-                # Copy the private key file and secure the copy.
-                FileUtils.copy(ssh_key_file, installed_key_file)
-                FileUtils.chmod(0600, installed_key_file)
+                as_user do
+                  # Copy the private key file and secure the copy.
+                  cp ssh_key_file, installed_key_file
+                  chmod 0600, installed_key_file
+                end
               end
             end
 
-            desc "Installs the SSH private key file for later use"
-            task install_key: [installed_key_file.to_s]
+            installed_key_deps = [installed_key_file]
           else
-            task :install_key
+            installed_key_file = nil
+            installed_key_deps = []
           end
 
           desc "Writes a Git SSH wrapper executable to #{git_ssh_executable.to_s.dump}"
-          file git_ssh_executable.to_s => [:check_root, :install_key] do
+          with_parent_directory git_ssh_executable => installed_key_deps do
             ssh_command = ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null"]
             ssh_command += ["-i", installed_key_file.to_s] \
               if installed_key_file
             ssh_command = ssh_command.map { |arg| Shellwords.escape(arg) }.join(" ")
 
-            git_ssh_executable.open("wb") do |f|
-              f.write(<<EOS
+            as_user do
+              git_ssh_executable.open("wb") do |f|
+                f.write(<<EOS
 #!/usr/bin/env bash
 #
 # This script was auto-generated by OS X Bootstrap.
@@ -306,239 +446,204 @@ set -e
 
 exec -- #{ssh_command} "$@"
 EOS
-              )
-            end
+                )
+              end
 
-            # Assign executable bits.
-            FileUtils.chmod("+x", git_ssh_executable)
+              # Assign executable bits.
+              chmod "+x", git_ssh_executable
+            end
           end
 
-          task install: [git_ssh_executable.to_s]
+          with_parent_directory ssh_installed => git_ssh_executable do
+            as_user do
+              touch ssh_installed
+            end
+          end
         end
 
         namespace :command_line_tools do
-          magic_temp_file = Pathname.new("/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress")
-          clt_bom = Pathname.new("/System/Library/receipts/com.apple.pkg.CLTools_Executables.bom")
-          clt_plist = Pathname.new("/System/Library/receipts/com.apple.pkg.CLTools_Executables.plist")
+          clt_bom_file = Pathname.new("/System/Library/receipts/com.apple.pkg.CLTools_Executables.bom")
+          clt_plist_file = Pathname.new("/System/Library/receipts/com.apple.pkg.CLTools_Executables.plist")
 
-          # See `http://macops.ca/installing-command-line-tools-automatically-on-mavericks/`.
-          desc "Ensures that the magic file for faking an on-demand installation is in place"
-          file magic_temp_file.to_s do
-            FileUtils.touch(magic_temp_file)
+          file clt_bom_file do
+            softwareupdate_install
           end
 
-          file clt_bom.to_s => [:softwareupdate_install]
-          file clt_plist.to_s => [:softwareupdate_install]
+          file clt_plist_file do
+            softwareupdate_install
+          end
 
-          desc "Installs the command-line tools package via the `softwareupdate` tool"
-          task softwareupdate_install: [:check_root, magic_temp_file.to_s] do
-            next \
-              if clt_bom.file? && clt_plist.file?
-
-            pp(:info, "Run `softwareupdate` to get the manifest of available updates")
-
-            sh "softwareupdate", "-l"
-
-            # After `softwareupdate` has run, look in the plist of recommended updates. Some sort of command-line tools
-            # package should be there.
-
-            xml = IO.popen(["plutil", "-convert", "xml1", "-o", "-", "--",
-                            "/Library/Preferences/com.apple.SoftwareUpdate.plist"]) do |io|
-              io.read
+          with_parent_directory command_line_tools_installed => [clt_bom_file, clt_plist_file] do
+            as_user do
+              touch command_line_tools_installed
             end
-
-            exit_status = $?.exitstatus
-
-            raise "`plutil` returned nonzero exit status #{exit_status}" \
-              if exit_status != 0
-
-            # Create an XPath query for the package information.
-            doc = REXML::Document.new(xml)
-            node = doc.elements["/plist" \
-                "/dict" \
-                "/key[text()=\"RecommendedUpdates\"]" \
-                "/following::array[position()=1]" \
-                "/dict[key[text()=\"Display Name\"]" \
-                "/following::string[position()=1 and starts-with(text(), \"Command Line \")]]"
-            ]
-
-            raise "Could not find the necessary metadata for installing the command-line tools package" \
-              if !node
-
-            identifier = node.elements["key[text()=\"Identifier\"]/following::string[position()=1]/text()"]
-            display_version = node.elements["key[text()=\"Display Version\"]/following::string[position()=1]/text()"]
-
-            pp(:info, "Install #{identifier} via `softwareupdate`")
-
-            sh "softwareupdate", "-v", "-i", "#{identifier}-#{display_version}"
           end
-
-          task cleanup: [:softwareupdate_install, magic_temp_file.to_s] do
-            magic_temp_file.delete
-          end
-
-          task install: [:cleanup, clt_bom.to_s, clt_plist.to_s]
         end
 
         namespace :rbenv do
-          ruby_build_dir = (rbenv_dir + "plugins/ruby-build")
+          ruby_build_dir = rbenv_dir + "plugins/ruby-build"
           ruby_build_definition = ruby_build_dir + "share/ruby-build/#{rbenv_version}"
-          rbenv_ruby_token = prefix + "var/user_data/rbenv/#{rbenv_version}/.ruby"
 
           desc "Clones the rbenv repository into #{rbenv_dir.to_s.dump}"
-          directory rbenv_dir.to_s => [:check_root, "command_line_tools:install"] do
+          with_parent_directory rbenv_dir + ".git" => command_line_tools_installed do
             pp(:info, "Clone the rbenv repository")
 
-            sh "git", "clone", "--", "https://github.com/sstephenson/rbenv", rbenv_dir.to_s
+            as_user do
+              cd rbenv_dir do
+                sh "git", "init"
+                sh "git", "remote", "add", "--", "origin", "https://github.com/rbenv/rbenv"
+                sh "git", "fetch"
+                sh "git", "remote", "set-head", "--", "origin", "master"
+                sh "git", "reset", "--hard", "origin/master"
+              end
+            end
           end
 
           desc "Clones the ruby-build repository into #{ruby_build_dir.to_s.dump}"
-          directory ruby_build_dir.to_s => [:check_root, "command_line_tools:install"] do
+          directory (ruby_build_dir + ".git").to_s => [command_line_tools_installed, rbenv_dir] do
             pp(:info, "Clone the ruby-build repository")
 
-            sh "git", "clone", "--", "https://github.com/sstephenson/ruby-build", ruby_build_dir.to_s
+            as_user do
+              mkdir_p ruby_build_dir
+
+              cd ruby_build_dir do
+                sh "git", "init"
+                sh "git", "remote", "add", "--", "origin", "https://github.com/rbenv/ruby-build"
+                sh "git", "fetch"
+                sh "git", "remote", "set-head", "--", "origin", "master"
+                sh "git", "reset", "--hard", "origin/master"
+              end
+            end
           end
 
           desc "Updates the ruby-build repository"
-          file ruby_build_definition.to_s => [ruby_build_dir.to_s] do
+          file ruby_build_definition => ruby_build_dir + ".git" do
             pp(:info, "Update the ruby-build repository")
 
-            Dir.chdir(ruby_build_dir) do
-              sh "git", "pull"
+            as_user do
+              cd ruby_build_dir do
+                sh "git", "pull"
+              end
             end
           end
-
-          directory rbenv_ruby_token.parent.to_s
 
           desc "Installs the default rbenv Ruby"
-          file rbenv_ruby_token.to_s => [rbenv_dir.to_s, ruby_build_definition.to_s, rbenv_ruby_token.parent.to_s] do
+          with_parent_directory rbenv_installed => [rbenv_dir + ".git", ruby_build_definition] do
             pp(:info, "Install rbenv Ruby version #{rbenv_version}")
 
-            rbenv(rbenv_dir) do |rbenv|
-              sh rbenv, "install", rbenv_version
+            as_user do
+              rbenv(rbenv_dir) do |rbenv|
+                sh rbenv, "install", rbenv_version
+              end
+
+              # Set the default rbenv Ruby version.
+              (rbenv_dir + "version").open("wb") { |f| f.write("#{rbenv_version}\n") }
+
+              touch rbenv_installed
             end
-
-            # Set the default rbenv Ruby version.
-            (rbenv_dir + "version").open("wb") { |f| f.write("#{rbenv_version}\n") }
-
-            FileUtils.touch(rbenv_ruby_token)
           end
-
-          task install: [rbenv_ruby_token.to_s]
         end
 
         namespace :chef do
+          installed_attribute_json_file = user_data_dir + "chef/attributes.json"
+          installed_attribute_yaml_file = user_data_dir + "chef/attributes.yml"
+          cheffile_lock = repo_dir + "Cheffile.lock"
           chef_client_executable = rbenv_dir + "versions/#{rbenv_version}/bin/chef-client"
           librarian_chef_executable = rbenv_dir + "versions/#{rbenv_version}/bin/librarian-chef"
-          cheffile_lock = repo_dir + "Cheffile.lock"
-          cheffile_token = prefix + "var/user_data/git/.#{repo_dir.basename.to_s}-Cheffile.lock"
-          installed_attribute_json_file = prefix + "var/user_data/chef/attributes.json"
-          installed_attribute_yaml_file = prefix + "var/user_data/chef/attributes.yml"
 
           if chef_attribute_path
-            raise "No Chef attributes found at #{chef_attribute_path.to_s.dump}" \
-              if !chef_attribute_path.exist?
-
             attributes, deps = attributes_from_path(chef_attribute_path)
-            deps = deps.map { |dep| dep.to_s }.each { |dep| file dep }
 
-            directory installed_attribute_json_file.parent.to_s
+            deps.each { |dep| file dep }
 
-            file installed_attribute_json_file.to_s => [*deps, installed_attribute_json_file.parent.to_s] do
+            with_parent_directory installed_attribute_json_file => deps do
               pp(:info, "Write the JSONified Chef attribute file to #{installed_attribute_json_file.to_s}")
 
-              installed_attribute_json_file.open("wb") { |f| f.write(JSON.generate(attributes)) }
+              as_user do
+                installed_attribute_json_file.open("wb") { |f| f.write(JSON.generate(attributes)) }
+              end
             end
 
-            if !deps.find { |dep| dep == installed_attribute_yaml_file.to_s }
-              directory installed_attribute_yaml_file.parent.to_s
-
-              file installed_attribute_yaml_file.to_s => [*deps, installed_attribute_yaml_file.parent.to_s] do
+            if !deps.find { |dep| dep == installed_attribute_yaml_file }
+              with_parent_directory installed_attribute_yaml_file => deps do
                 pp(:info, "Write the YAMLized Chef attribute file to #{installed_attribute_yaml_file.to_s}")
 
-                installed_attribute_yaml_file.open("wb") { |f| f.write(YAML.dump(attributes)) }
-              end
-            end
-
-            desc "Installs the Chef attribute file for later use"
-            task install_attributes: [installed_attribute_json_file.to_s, installed_attribute_yaml_file.to_s]
-          else
-            task :install_attributes
-          end
-
-          desc "Clones the user's Chef repository into #{repo_dir.to_s.dump}"
-          directory repo_dir.to_s => [:check_root, "ssh:install", "command_line_tools:install"] do
-            pp(:info, "Clone the Chef repository at #{repo_url} (#{repo_branch})")
-
-            git_ssh(git_ssh_executable) do
-              sh "git", "clone", "-b", repo_branch, "--", repo_url, repo_dir.to_s
-            end
-          end
-
-          desc "Checks that the Chef client configuration file exists"
-          file chef_config_file.to_s => [repo_dir.to_s] do
-            raise "Please provide a Chef client configuration file located at #{chef_config_file.to_s.dump}" \
-              if !chef_config_file.exist?
-          end
-
-          file chef_client_executable.to_s => [:gem_install]
-          file librarian_chef_executable.to_s => [:gem_install]
-
-          desc "Runs `gem install` with the default rbenv Ruby"
-          task gem_install: [:check_root, "rbenv:install"] do
-            next \
-              if chef_client_executable.executable? && librarian_chef_executable.executable?
-
-            pp(:info, "Install the `chef` and `librarian-chef` gems")
-
-            # Change the directory to avoid picking up any stray `.ruby-version` files.
-            Dir.chdir(Pathname.new("/")) do
-              rbenv(rbenv_dir) do |rbenv|
-                sh rbenv, "exec", "gem", "install", "--no-document", "chef", "librarian-chef"
-                sh rbenv, "rehash"
-              end
-            end
-          end
-
-          directory cheffile_token.parent.to_s
-
-          desc "Checks that the `Cheffile.lock` exists"
-          file cheffile_lock.to_s => [repo_dir.to_s, cheffile_token.parent.to_s] do
-            raise "Please provide a `Cheffile.lock` located at #{cheffile_lock.to_s.dump}" \
-              if !cheffile_lock.exist?
-          end
-
-          desc "Runs `librarian-chef install` in the Chef repository"
-          file cheffile_token.to_s => ["ssh:install", librarian_chef_executable.to_s, cheffile_lock.to_s] do
-            pp(:info, "Run `librarian-chef install` in the Chef repository")
-
-            Dir.chdir(repo_dir) do
-              rbenv(rbenv_dir) do |rbenv|
-                git_ssh(git_ssh_executable) do
-                  sh rbenv, "exec", "librarian-chef", "install"
+                as_user do
+                  installed_attribute_yaml_file.open("wb") { |f| f.write(YAML.dump(attributes)) }
                 end
               end
             end
 
-            FileUtils.touch(cheffile_token)
+            installed_attribute_deps = [installed_attribute_json_file, installed_attribute_yaml_file]
+          else
+            installed_attribute_deps = []
           end
 
-          task install: [:install_attributes,
-                         chef_client_executable.to_s, chef_config_file.to_s, cheffile_token.to_s]
+          desc "Clones the user's Chef repository into #{repo_dir.to_s.dump}"
+          with_parent_directory repo_dir => [ssh_installed, command_line_tools_installed] do
+            pp(:info, "Clone the Chef repository at #{repo_url} (#{repo_branch})")
+
+            as_user do
+              git_ssh(git_ssh_executable) do
+                sh "git", "clone", "-b", repo_branch, "--", repo_url, repo_dir.to_s
+              end
+            end
+          end
+
+          desc "Checks that the Chef client configuration file exists"
+          file chef_config_file => repo_dir do
+            raise "Please provide a Chef client configuration file located at #{chef_config_file.to_s.dump}" \
+              if !chef_config_file.exist?
+          end
+
+          desc "Checks that the `Cheffile.lock` exists"
+          file cheffile_lock => repo_dir do
+            raise "Please provide a `Cheffile.lock` located at #{cheffile_lock.to_s.dump}" \
+              if !cheffile_lock.exist?
+          end
+
+          file chef_client_executable => [rbenv_installed] do
+            gem_install(rbenv_dir, "chef")
+          end
+
+          file librarian_chef_executable => [rbenv_installed] do
+            gem_install(rbenv_dir, "librarian-chef")
+          end
+
+          desc "Runs `librarian-chef install` in the Chef repository"
+          with_parent_directory chef_installed => [
+              ssh_installed, command_line_tools_installed, rbenv_installed, chef_config_file, cheffile_lock,
+              chef_client_executable, librarian_chef_executable
+          ] + installed_attribute_deps do
+            pp(:info, "Run `librarian-chef install` in the Chef repository")
+
+            as_user do
+              cd repo_dir do
+                rbenv(rbenv_dir) do |rbenv|
+                  git_ssh(git_ssh_executable) do
+                    sh rbenv, "exec", "librarian-chef", "install"
+                  end
+                end
+              end
+
+              touch chef_installed
+            end
+          end
         end
 
-        directory osx_bootstrap_executable.parent.to_s
-
         desc "Writes an executable to #{osx_bootstrap_executable.to_s.dump}"
-        file osx_bootstrap_executable.to_s => [:check_root, "ssh:install", "rbenv:install", "chef:install",
-                                               osx_bootstrap_executable.parent.to_s] do
+        with_parent_directory osx_bootstrap_executable => [
+            ssh_installed, rbenv_installed, command_line_tools_installed, chef_installed
+        ] do
           rbenv_executable = rbenv_dir + "bin/rbenv"
 
           lines = []
           lines.push(["chef-client", "-z"])
           lines.push(["-c", chef_config_file.to_s])
-          lines.push(["-j", (prefix + "var/user_data/chef/attributes.json").to_s]) \
+          lines.push(["-j", (user_data_dir + "chef/attributes.json").to_s]) \
             if chef_attribute_path
+
+          sudo_user_command = "sudo -E -u #{Shellwords.escape(ENV["SUDO_USER"])}"
 
           chef_client_command = lines.map do |args|
             args.map do |arg|
@@ -574,8 +679,9 @@ EOS
             end.join(" ")
           end.join(" \\\n                ")
 
-          osx_bootstrap_executable.open("wb") do |f|
-            f.write(<<EOS
+          as_user do
+            osx_bootstrap_executable.open("wb") do |f|
+              f.write(<<EOS
 #!/usr/bin/env bash
 #
 # This script was auto-generated by OS X Bootstrap.
@@ -609,16 +715,16 @@ case "$1" in
         cd -- #{Shellwords.escape(repo_dir.to_s)}
 
         sha1_old=$(git rev-parse --verify HEAD)
-        git fetch -q
+        #{sudo_user_command} -- git fetch -q
         sha1_new=$(git rev-parse --verify "HEAD@{upstream}")
 
         # Compare the old and new SHA-1 hashes and only take action if they are different.
         if [[ "$sha1_old" != "$sha1_new" ]]; then
             # Hard reset to the latest commit.
-            git reset -q --hard "$sha1_new"
+            #{sudo_user_command} -- git reset -q --hard "$sha1_new"
 
             if [[ -f "Cheffile" ]]; then
-                #{Shellwords.escape(rbenv_executable.to_s)} exec librarian-chef install
+                #{sudo_user_command} -- #{Shellwords.escape(rbenv_executable.to_s)} exec librarian-chef install
             fi
         fi
 
@@ -645,17 +751,19 @@ case "$1" in
         ;;
 esac
 EOS
-            )
+              )
+            end
+
+            # Assign executable bits.
+            chmod "+x", osx_bootstrap_executable
           end
-
-          # Assign executable bits.
-          FileUtils.chmod("+x", osx_bootstrap_executable)
         end
+      end
 
-        main_task = task install: [osx_bootstrap_executable.to_s] do
-          # Display the post-installation notice.
-          pp
-          pp(:heading, <<EOS
+      task default: osx_bootstrap_executable do
+        # Display the post-installation notice.
+        pp
+        pp(:heading, <<EOS
 Installation complete!
 
 We've placed the <nobreak>#{osx_bootstrap_executable.basename.to_s.encode(xml: :text)}</nobreak> script in <nobreak>\
@@ -675,11 +783,8 @@ Happy provisioning, and don't hesitate to file issues against the project:
 
     https://github.com/carsomyr/osx-bootstrap
 EOS
-          )
-        end
+        )
       end
-
-      main_task
     end
   end
 end
@@ -688,8 +793,8 @@ if __FILE__ == $0
   opts = {
       prefix: Pathname.new("/usr/local"),
       config_dir: Pathname.new("/Volumes/User Data"),
-      rbenv_dir: Pathname.new("/opt/rbenv"),
-      rbenv_version: "2.3.1",
+      rbenv_dir: Pathname.new("/usr/local/var/rbenv"),
+      rbenv_version: "2.4.0",
       repo_url: "https://github.com/carsomyr/osx-bootstrap",
       repo_branch: "master",
       ssh_key_file: nil,
@@ -801,12 +906,18 @@ if __FILE__ == $0
     opts[:ssh_key_file] = ssh_key_file
   end
 
+  raise "No SSH private key file found at #{ssh_key_file.to_s.dump}" \
+    if ssh_key_file && !ssh_key_file.file?
+
   chef_attribute_dir = config_dir + "chef"
 
   if !chef_attribute_path && chef_attribute_dir.directory?
     chef_attribute_path = chef_attribute_dir
     opts[:chef_attribute_path] = chef_attribute_path
   end
+
+  raise "No Chef attributes found at #{chef_attribute_path.to_s.dump}" \
+    if chef_attribute_path && !chef_attribute_path.exist?
 
   repo_basename_pattern = Regexp.new("\\A.+[/:](.+)\\z")
   m = repo_basename_pattern.match(repo_url)
@@ -864,6 +975,9 @@ EOS
       exit 1
     end
   end
+
+  raise "Root privileges are needed" \
+    if Process.euid != 0
 
   instance_exec(opts, user_opts, &OsX::Bootstrap.define_rake_tasks).invoke
 end
