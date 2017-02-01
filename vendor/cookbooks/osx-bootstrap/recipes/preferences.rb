@@ -90,6 +90,14 @@ plist_file "com.apple.ActivityMonitor" do
   action :update
 end
 
+plist_file "com.apple.HIToolbox" do
+  # Prevent Dictation from activating on two consecutive presses of the Fn key.
+  set "AppleDictationAutoEnable", prefs["hi_toolbox"]["apple_dictation_auto_enable"]
+
+  format :binary
+  action :update
+end
+
 plist_file "com.apple.Terminal" do
   profile = prefs["terminal"]["profile"]
 
