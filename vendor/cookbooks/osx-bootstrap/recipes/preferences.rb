@@ -47,6 +47,9 @@ plist_file "Apple Global Domain" do
   # Set a low double click threshold.
   set "com.apple.mouse.doubleClickThreshold", prefs["global"]["double_click_threshold"]
 
+  # Play a sound and visual effect when the volume is changed.
+  set "com.apple.sound.uiaudio.enabled", prefs["global"]["ui_audio_enabled"]
+
   # Set mouse and trackpad acceleration; `nil` to disable.
   pointer_acceleration = prefs["global"]["pointer_acceleration"]
 
