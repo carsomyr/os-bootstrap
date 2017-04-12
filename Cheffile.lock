@@ -1,22 +1,28 @@
 SITE
   remote: https://supermarket.getchef.com/api/v1
   specs:
-    build-essential (6.0.0)
-      compat_resource (>= 12.10)
+    build-essential (8.0.0)
       mingw (>= 1.1)
       seven_zip (>= 0.0.0)
-    chef_handler (1.4.0)
-    compat_resource (12.10.5)
-    homebrew (2.1.0)
-      build-essential (>= 2.1.2)
-    mingw (1.1.0)
-      compat_resource (>= 0.0.0)
+    compat_resource (12.16.3)
+    dmg (3.1.1)
+    git (6.0.0)
+      build-essential (>= 0.0.0)
+      dmg (>= 0.0.0)
+      yum-epel (>= 0.0.0)
+    homebrew (3.0.0)
+    mingw (2.0.0)
       seven_zip (>= 0.0.0)
-    ruby_build (0.8.0)
-    seven_zip (2.0.1)
+    ohai (5.0.3)
+    ruby_build (1.1.0)
+      git (>= 0.0.0)
+      yum-epel (>= 0.0.0)
+    seven_zip (2.0.2)
       windows (>= 1.2.2)
-    windows (1.43.0)
-      chef_handler (>= 0.0.0)
+    windows (3.0.5)
+      ohai (>= 4.0.0)
+    yum-epel (2.1.1)
+      compat_resource (>= 12.16.3)
 
 GIT
   remote: https://github.com/carsomyr/chef-plist
@@ -29,10 +35,10 @@ GIT
 GIT
   remote: https://github.com/chef-rbenv/ruby_rbenv
   ref: master
-  sha: ea66c6f18be9cb54bae70b1280408bb09e47dc53
+  sha: 8b88f88e7b840f648a453cab3ba04d2ab795c5e6
   specs:
-    ruby_rbenv (1.0.1)
-      ruby_build (>= 0.0.0)
+    ruby_rbenv (1.2.0)
+      ruby_build (>= 1.1.0)
 
 PATH
   remote: vendor/cookbooks/osx-bootstrap

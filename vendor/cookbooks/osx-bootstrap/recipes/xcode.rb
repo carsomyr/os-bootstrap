@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2014 Roy Liu
+# Copyright 2014-2017 Roy Liu
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
 # use this file except in compliance with the License. You may obtain a copy of
@@ -30,7 +30,7 @@ homebrew_dir = prefix + "Homebrew"
 xcode_url = node["osx-bootstrap"]["xcode"]["url"]
 volume_dir = Pathname.new(node["osx-bootstrap"]["volume_root"])
 caskroom_dir = prefix + "Caskroom"
-xcode_archive_file = volume_dir && Pathname.glob("#{volume_dir.to_s}/files/[Xx]code*.{dmg,xip}").last
+xcode_archive_file = Pathname.glob("#{volume_dir.to_s}/files/[Xx]code*.{dmg,xip}").last
 xcode_url ||= "file://#{URI.escape(xcode_archive_file.to_s)}" if xcode_archive_file && xcode_archive_file.file?
 cask_version_pattern = Regexp.new("[Xx]code([-_].+|)\\.(?:dmg|xip)")
 cask_version = (xcode_archive_file && cask_version_pattern.match(xcode_archive_file.basename.to_s)[1][1..-1]) ||
