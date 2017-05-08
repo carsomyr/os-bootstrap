@@ -1,19 +1,19 @@
 SITE
   remote: https://supermarket.getchef.com/api/v1
   specs:
-    build-essential (8.0.0)
+    build-essential (8.0.2)
       mingw (>= 1.1)
       seven_zip (>= 0.0.0)
-    compat_resource (12.16.3)
-    dmg (3.1.1)
+    compat_resource (12.19.0)
+    dmg (4.0.0)
     git (6.0.0)
       build-essential (>= 0.0.0)
       dmg (>= 0.0.0)
       yum-epel (>= 0.0.0)
-    homebrew (3.0.0)
-    mingw (2.0.0)
+    homebrew (4.1.0)
+    mingw (2.0.1)
       seven_zip (>= 0.0.0)
-    ohai (5.0.3)
+    ohai (5.1.0)
     ruby_build (1.1.0)
       git (>= 0.0.0)
       yum-epel (>= 0.0.0)
@@ -28,9 +28,9 @@ GIT
   remote: https://github.com/carsomyr/chef-plist
   path: vendor/cookbooks/plist
   ref: master
-  sha: be7b3e2bb6c57c301c6bfa7381951e92633d8429
+  sha: 03db81f0abfa6b06e3144925e92488b3d3a20393
   specs:
-    plist (0.9.3)
+    plist (0.9.4)
 
 GIT
   remote: https://github.com/chef-rbenv/ruby_rbenv

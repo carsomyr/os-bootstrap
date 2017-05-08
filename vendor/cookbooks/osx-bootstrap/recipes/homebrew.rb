@@ -57,7 +57,7 @@ end)
       if new_resource.can_update
         execute "updating cask #{new_resource.name}" do
           command [(prefix + "bin/brew").to_s, "cask", "install", "--", new_resource.name]
-          user homebrew_owner
+          user Homebrew.owner
         end
       end
     end
@@ -75,11 +75,11 @@ homebrew_install_dirs = [
     "share/man/man5", "share/man/man6", "share/man/man7", "share/man/man8",
     "share/info", "share/doc", "share/aclocal",
     "Caskroom", "Cellar", "Frameworks", "Homebrew", "Homebrew/Library", "Homebrew/Library/Taps"
-].map { |dir_name| Pathname.new("/usr/local") + dir_name }
+].map {|dir_name| Pathname.new("/usr/local") + dir_name}
 
 zsh_install_dirs = [
     "share/zsh", "share/zsh/site-functions"
-].map { |dir_name| Pathname.new("/usr/local") + dir_name }
+].map {|dir_name| Pathname.new("/usr/local") + dir_name}
 
 homebrew_cache_dir = owner_dir + "Library/Caches/Homebrew"
 homebrew_old_cache_dir = Pathname.new("/Library/Caches/Homebrew")
