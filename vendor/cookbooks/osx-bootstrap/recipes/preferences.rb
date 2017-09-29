@@ -34,6 +34,9 @@ plist_file "Apple Global Domain" do
   # Show all file extensions or hide some common ones.
   set "AppleShowAllExtensions", prefs["global"]["show_all_file_extensions"]
 
+  # Show all files or hide some typical ones (like those beginning with `.`).
+  set "AppleShowAllFiles", prefs["global"]["show_all_files"]
+
   # Set fast key repeat intervals.
   set "InitialKeyRepeat", prefs["global"]["initial_key_repeat"]
   set "KeyRepeat", prefs["global"]["key_repeat"]
@@ -164,9 +167,6 @@ end
 
 plist_file "com.apple.finder" do
   icon_size = prefs["finder"]["icon_size"].to_f
-
-  # Show all files or hide some typical ones (like those beginning with `.`).
-  set "AppleShowAllFiles", prefs["finder"]["show_all_files"]
 
   # Make the icons bigger.
   set "DesktopViewSettings", "IconViewSettings", "iconSize", icon_size
