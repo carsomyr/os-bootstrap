@@ -89,6 +89,8 @@ if xcode_url
       major_version = xcode_version.split(".", -1)[0]
 
       case major_version
+        when "9"
+          license_version = "EA1478"
         when "8"
           license_version = "EA1421"
         when "7"
