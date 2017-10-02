@@ -253,28 +253,49 @@ module OsX
           begin
             sh "softwareupdate", "-l"
 
-            # After `softwareupdate` has run, look in the plist of recommended updates. Some sort of command-line tools
-            # package should be there.
+            node = nil
 
-            xml = IO.popen(["plutil", "-convert", "xml1", "-o", "-", "--",
-                            "/Library/Preferences/com.apple.SoftwareUpdate.plist"]) do |io|
-              io.read
+            (0...6).each do |backoff|
+              begin
+                # After `softwareupdate` has run, look in the plist of recommended updates. Some sort of command-line
+                # tools package should be there.
+
+                xml = IO.popen(["plutil", "-convert", "xml1", "-o", "-", "--",
+                                "/Library/Preferences/com.apple.SoftwareUpdate.plist"]) do |io|
+                  io.read
+                end
+
+                exit_status = $?.exitstatus
+
+                raise "`plutil` returned nonzero exit status #{exit_status}" \
+                  if exit_status != 0
+
+                # Create an XPath query for the package information.
+                doc = REXML::Document.new(xml)
+                node = doc.elements["/plist" \
+                    "/dict" \
+                    "/key[text()=\"RecommendedUpdates\"]" \
+                    "/following::array[position()=1]" \
+                    "/dict[key[text()=\"Display Name\"]" \
+                    "/following::string[position()=1 and starts-with(text(), \"Command Line \")]]"
+                ]
+              rescue ArgumentError, SystemCallError, REXML::ParseException
+                node = nil
+              end
+
+              # Use an exponential backoff mechanism to account for the `softwareupdate` not writing to
+              # `/Library/Preferences/com.apple.SoftwareUpdate.plist`: That responsibility belongs to something else,
+              # probably a daemon.
+              if node
+                break
+              else
+                delay = 2 ** backoff
+
+                pp(:info, "Command-line tools package metadata not found: retrying in #{delay} seconds")
+
+                sleep delay
+              end
             end
-
-            exit_status = $?.exitstatus
-
-            raise "`plutil` returned nonzero exit status #{exit_status}" \
-              if exit_status != 0
-
-            # Create an XPath query for the package information.
-            doc = REXML::Document.new(xml)
-            node = doc.elements["/plist" \
-                  "/dict" \
-                  "/key[text()=\"RecommendedUpdates\"]" \
-                  "/following::array[position()=1]" \
-                  "/dict[key[text()=\"Display Name\"]" \
-                  "/following::string[position()=1 and starts-with(text(), \"Command Line \")]]"
-            ]
 
             raise "Could not find the necessary metadata for installing the command-line tools package" \
               if !node
@@ -355,7 +376,7 @@ module OsX
               attribute_files += child_attribute_files
             end
           elsif path.file? && path.extname == ".yml"
-            attributes = YAML.load(path.open("rb") { |f| f.read }) || {}
+            attributes = YAML.load(path.open("rb") {|f| f.read}) || {}
             attribute_files.push(path)
           end
 
@@ -365,7 +386,7 @@ module OsX
         # Deep merges the given `Hash`es.
         def deep_merge(lhs, rhs)
           if lhs.is_a?(Hash) && rhs.is_a?(Hash)
-            lhs.merge(rhs) { |_, lhs_value, rhs_value| deep_merge(lhs_value, rhs_value) }
+            lhs.merge(rhs) {|_, lhs_value, rhs_value| deep_merge(lhs_value, rhs_value)}
           else
             rhs
           end
@@ -432,7 +453,7 @@ module OsX
             ssh_command = ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null"]
             ssh_command += ["-i", installed_key_file.to_s] \
               if installed_key_file
-            ssh_command = ssh_command.map { |arg| Shellwords.escape(arg) }.join(" ")
+            ssh_command = ssh_command.map {|arg| Shellwords.escape(arg)}.join(" ")
 
             as_user do
               git_ssh_executable.open("wb") do |f|
@@ -537,7 +558,7 @@ EOS
               end
 
               # Set the default rbenv Ruby version.
-              (rbenv_dir + "version").open("wb") { |f| f.write("#{rbenv_version}\n") }
+              (rbenv_dir + "version").open("wb") {|f| f.write("#{rbenv_version}\n")}
 
               touch rbenv_installed
             end
@@ -554,22 +575,22 @@ EOS
           if chef_attribute_path
             attributes, deps = attributes_from_path(chef_attribute_path)
 
-            deps.each { |dep| file dep }
+            deps.each {|dep| file dep}
 
             with_parent_directory installed_attribute_json_file => deps do
               pp(:info, "Write the JSONified Chef attribute file to #{installed_attribute_json_file.to_s}")
 
               as_user do
-                installed_attribute_json_file.open("wb") { |f| f.write(JSON.generate(attributes)) }
+                installed_attribute_json_file.open("wb") {|f| f.write(JSON.generate(attributes))}
               end
             end
 
-            if !deps.find { |dep| dep == installed_attribute_yaml_file }
+            if !deps.find {|dep| dep == installed_attribute_yaml_file}
               with_parent_directory installed_attribute_yaml_file => deps do
                 pp(:info, "Write the YAMLized Chef attribute file to #{installed_attribute_yaml_file.to_s}")
 
                 as_user do
-                  installed_attribute_yaml_file.open("wb") { |f| f.write(YAML.dump(attributes)) }
+                  installed_attribute_yaml_file.open("wb") {|f| f.write(YAML.dump(attributes))}
                 end
               end
             end
