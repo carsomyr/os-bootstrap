@@ -236,6 +236,9 @@ plist_file "com.apple.symbolichotkeys" do
   # Enable or disable the VoiceOver hotkey.
   set "AppleSymbolicHotKeys", "59", "enabled", prefs["symbolic_hotkeys"]["enable_voice_over"]
 
+  # Disable the `Switch to Desktop 1` hotkey.
+  set "AppleSymbolicHotKeys", "118", "enabled", prefs["symbolic_hotkeys"]["enable_desktop_1"]
+
   format :binary
   action :update
 end

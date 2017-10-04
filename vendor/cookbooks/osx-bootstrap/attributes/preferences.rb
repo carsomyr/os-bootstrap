@@ -36,6 +36,7 @@ default["osx-bootstrap"]["preferences"]["global"]["ui_audio_enabled"] = 1
 default["osx-bootstrap"]["preferences"]["global"]["use_standard_function_keys"] = true
 default["osx-bootstrap"]["preferences"]["hi_toolbox"]["apple_dictation_auto_enable"] = 0
 default["osx-bootstrap"]["preferences"]["screen_capture"]["enable_drop_shadows"] = false
+default["osx-bootstrap"]["preferences"]["symbolic_hotkeys"]["enable_desktop_1"] = false
 default["osx-bootstrap"]["preferences"]["symbolic_hotkeys"]["enable_voice_over"] = false
 default["osx-bootstrap"]["preferences"]["system_preferences"]["show_time_machine_unsupported_volumes"] = true
 default["osx-bootstrap"]["preferences"]["terminal"]["font"] =
