@@ -63,8 +63,8 @@ if xcode_url
     owner recipe.owner
     group recipe.owner_group
     mode 0644
-    helper(:cask_version) { cask_version }
-    helper(:xcode_url) { xcode_url }
+    helper(:cask_version) {cask_version}
+    helper(:xcode_url) {xcode_url}
     action :create
   end
 
@@ -105,10 +105,11 @@ if xcode_url
 
       # "Accept" the Xcode license by creating a magic plist file populated with the EULA and Xcode versions.
       recipe.plist_file "com.apple.dt.Xcode" do
-        content({"IDELastGMLicenseAgreedTo" => license_version,
-                 "IDEXcodeVersionForAgreedToGMLicense" => xcode_version,
-                 "IDELastBetaLicenseAgreedTo" => license_version,
-                 "IDEXcodeVersionForAgreedToBetaLicense" => xcode_version})
+        set "IDELastGMLicenseAgreedTo", license_version
+        set "IDEXcodeVersionForAgreedToGMLicense", xcode_version
+        set "IDELastBetaLicenseAgreedTo", license_version
+        set "IDEXcodeVersionForAgreedToBetaLicense", xcode_version
+
         format :xml
         owner "root"
         group "wheel"

@@ -42,7 +42,7 @@ local_hostname = machine_info["local_hostname"]
 name = machine_info["name"]
 
 local_hostname = name.gsub(Regexp.new("[ _]"), "-").gsub(Regexp.new("[^\\-0-9A-Za-z]"), "") \
-  .split("-", -1).select { |s| s != "" }.join("-") \
+  .split("-", -1).select {|s| s != ""}.join("-") \
   if name && !local_hostname
 
 plist_file "SystemConfiguration/preferences" do
@@ -60,7 +60,7 @@ plist_file "SystemConfiguration/preferences" do
   # We need to kill `configd` to prevent something like `hostname` from outputting stale, cached values.
   notifies :run, "execute[`killall -- configd`]", :immediately
 
-  action :update
+  action :create
 end
 
 execute "`killall -- configd`" do

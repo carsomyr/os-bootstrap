@@ -65,7 +65,7 @@ plist_file "Apple Global Domain" do
   end
 
   format :binary
-  action :update
+  action :create
 end
 
 plist_file "com.apple.ActivityMonitor" do
@@ -93,7 +93,7 @@ plist_file "com.apple.ActivityMonitor" do
       end
 
   format :binary
-  action :update
+  action :create
 end
 
 plist_file "com.apple.HIToolbox" do
@@ -101,7 +101,7 @@ plist_file "com.apple.HIToolbox" do
   set "AppleDictationAutoEnable", prefs["hi_toolbox"]["apple_dictation_auto_enable"]
 
   format :binary
-  action :update
+  action :create
 end
 
 plist_file "com.apple.Terminal" do
@@ -145,7 +145,7 @@ plist_file "com.apple.Terminal" do
       end
 
   format :binary
-  action :update
+  action :create
 end
 
 plist_file "com.apple.dock" do
@@ -162,7 +162,7 @@ plist_file "com.apple.dock" do
   notifies :run, "execute[`killall -- Dock`]", :immediately
 
   format :binary
-  action :update
+  action :create
 end
 
 plist_file "com.apple.finder" do
@@ -201,16 +201,14 @@ plist_file "com.apple.finder" do
   # We need to restart `Finder` for the changes to take effect.
   notifies :run, "execute[`killall -- Finder`]", :immediately
 
-  action :update
+  action :create
 end
 
 plist_file "com.apple.menuextra.clock" do
   # Set the clock format to something more useful.
-  content(
-      "DateFormat" => prefs["clock"]["format"],
-      "FlashDateSeparators" => prefs["clock"]["flash_date_separators"],
-      "IsAnalog" => prefs["clock"]["is_analog"]
-  )
+  set "DateFormat", prefs["clock"]["format"]
+  set "FlashDateSeparators", prefs["clock"]["flash_date_separators"]
+  set "IsAnalog", prefs["clock"]["is_analog"]
 
   format :binary
 
@@ -222,7 +220,7 @@ end
 
 plist_file "com.apple.screencapture" do
   # Enable or disable drop shadows in screenshots.
-  content("disable-shadow" => !prefs["screen_capture"]["enable_drop_shadows"])
+  set "disable-shadow", !prefs["screen_capture"]["enable_drop_shadows"]
 
   format :binary
 
@@ -240,7 +238,7 @@ plist_file "com.apple.symbolichotkeys" do
   set "AppleSymbolicHotKeys", "118", "enabled", prefs["symbolic_hotkeys"]["enable_desktop_1"]
 
   format :binary
-  action :update
+  action :create
 end
 
 plist_file "com.apple.systempreferences" do
@@ -249,7 +247,7 @@ plist_file "com.apple.systempreferences" do
   set "TMShowUnsupportedNetworkVolumes", prefs["system_preferences"]["show_time_machine_unsupported_volumes"]
 
   format :binary
-  action :update
+  action :create
 end
 
 # Make sure to also kill `cfprefsd` along with the desired target, as it is the daemon that maintains cached version of
