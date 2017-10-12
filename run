@@ -609,16 +609,10 @@ EOS
                 sh "git", "clone", "-b", repo_branch, "--", repo_url, repo_dir.to_s
               end
             end
-          end
 
-          desc "Checks that the Chef client configuration file exists"
-          file chef_config_file => repo_dir do
             raise "Please provide a Chef client configuration file located at #{chef_config_file.to_s.dump}" \
               if !chef_config_file.exist?
-          end
 
-          desc "Checks that the `Cheffile.lock` exists"
-          file cheffile_lock => repo_dir do
             raise "Please provide a `Cheffile.lock` located at #{cheffile_lock.to_s.dump}" \
               if !cheffile_lock.exist?
           end
@@ -633,7 +627,7 @@ EOS
 
           desc "Runs `librarian-chef install` in the Chef repository"
           with_parent_directory chef_installed => [
-              ssh_installed, command_line_tools_installed, rbenv_installed, chef_config_file, cheffile_lock,
+              ssh_installed, command_line_tools_installed, rbenv_installed, repo_dir,
               chef_client_executable, librarian_chef_executable
           ] + installed_attribute_deps do
             pp(:info, "Run `librarian-chef install` in the Chef repository")
