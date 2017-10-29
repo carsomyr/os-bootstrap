@@ -253,7 +253,7 @@ module OsX
           begin
             sh "softwareupdate", "-l"
 
-            node = nil
+            package_name = nil
 
             (0...6).each do |backoff|
               begin
@@ -272,21 +272,29 @@ module OsX
 
                 # Create an XPath query for the package information.
                 doc = REXML::Document.new(xml)
-                node = doc.elements["/plist" \
+                package_name = doc.elements.to_a(
+                    "/plist" \
                     "/dict" \
                     "/key[text()=\"RecommendedUpdates\"]" \
                     "/following::array[position()=1]" \
                     "/dict[key[text()=\"Display Name\"]" \
                     "/following::string[position()=1 and starts-with(text(), \"Command Line \")]]"
-                ]
+                ).map do |node|
+                  [node.elements["key[text()=\"Identifier\"]/following::string[position()=1]/text()"],
+                   node.elements["key[text()=\"Display Version\"]/following::string[position()=1]/text()"]]
+                end.sort do |lhs, rhs|
+                  -(lhs[1].to_s.to_f <=> rhs[1].to_s.to_f)
+                end.map do |identifier, display_version|
+                  "#{identifier}-#{display_version}"
+                end.first
               rescue ArgumentError, SystemCallError, REXML::ParseException
-                node = nil
+                package_name = nil
               end
 
               # Use an exponential backoff mechanism to account for the `softwareupdate` not writing to
               # `/Library/Preferences/com.apple.SoftwareUpdate.plist`: That responsibility belongs to something else,
               # probably a daemon.
-              if node
+              if package_name
                 break
               else
                 delay = 2 ** backoff
@@ -298,14 +306,11 @@ module OsX
             end
 
             raise "Could not find the necessary metadata for installing the command-line tools package" \
-              if !node
+              if !package_name
 
-            identifier = node.elements["key[text()=\"Identifier\"]/following::string[position()=1]/text()"]
-            display_version = node.elements["key[text()=\"Display Version\"]/following::string[position()=1]/text()"]
+            pp(:info, "Install #{package_name} via `softwareupdate`")
 
-            pp(:info, "Install #{identifier} via `softwareupdate`")
-
-            sh "softwareupdate", "-i", "#{identifier}-#{display_version}"
+            sh "softwareupdate", "-i", package_name
           ensure
             rm magic_temp_file
           end
