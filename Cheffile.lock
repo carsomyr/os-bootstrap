@@ -14,9 +14,9 @@ GIT
 GIT
   remote: https://github.com/chef-rbenv/ruby_rbenv
   ref: master
-  sha: 6b8b24563dba2780b100d5f7eda26a5a48fbc073
+  sha: 46df66c598a46d5790d0b3a9660d84e2f8d5bedb
   specs:
-    ruby_rbenv (2.0.4)
+    ruby_rbenv (2.0.5)
 
 PATH
   remote: vendor/cookbooks/os-bootstrap
