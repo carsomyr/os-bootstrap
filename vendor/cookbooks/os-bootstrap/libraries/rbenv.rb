@@ -14,7 +14,7 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-module ::OsX
+module ::Os
   module Bootstrap
     module Rbenv
       # Runs the given block as a particular user and group.

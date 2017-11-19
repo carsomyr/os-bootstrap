@@ -14,26 +14,6 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-class << self
-  include OsX::Bootstrap
-end
-
-include_recipe "osx-bootstrap::homebrew"
-
-recipe = self
-
-# Provide a unique description so as not to conflict with Homebrew's `package[git]` resource.
-package "install `git` for #{recipe_full_name}" do
-  package_name "git"
-  action :install
-end
-
-template (owner_dir + ".gitconfig").to_s do
-  source "git-gitconfig.erb"
-  owner recipe.owner
-  group recipe.owner_group
-  mode 0644
-  helper(:user_full_name) { recipe.user_full_name }
-  helper(:user_email) { recipe.user_email }
-  action :create
-end
+default["os-bootstrap"]["machine"]["by_mac_address"] = {}
+default["os-bootstrap"]["machine"]["local_hostname"] = nil
+default["os-bootstrap"]["machine"]["name"] = nil

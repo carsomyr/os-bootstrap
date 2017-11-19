@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2014-2016 Roy Liu
+# Copyright 2014 Roy Liu
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
 # use this file except in compliance with the License. You may obtain a copy of
@@ -14,5 +14,10 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-include_recipe "osx-bootstrap::rbenv"
-include_recipe "osx-bootstrap::postgresql"
+default["os-bootstrap"]["includes"] = []
+default["os-bootstrap"]["owner"] = nil
+default["os-bootstrap"]["prefix"] = "/usr/local"
+default["os-bootstrap"]["user"]["editor"] = "emacs"
+default["os-bootstrap"]["user"]["email"] = nil
+default["os-bootstrap"]["user"]["full_name"] = nil
+default["os-bootstrap"]["volume_root"] = "/Volumes/User Data"

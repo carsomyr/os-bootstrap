@@ -17,11 +17,11 @@
 require "pathname"
 
 class << self
-  include OsX::Bootstrap
+  include Os::Bootstrap
 end
 
 recipe = self
-prefix = Pathname.new(node["osx-bootstrap"]["prefix"])
+prefix = Pathname.new(node["os-bootstrap"]["prefix"])
 
 homebrew_cask_resource = ::Chef::ResourceResolver.new(node, "homebrew_cask").resolve.send(:prepend, Module.new do
   def initialize(name, run_context = nil)

@@ -20,16 +20,16 @@ require "socket"
 
 class << self
   include Chef::Mixin::ShellOut
-  include OsX::Bootstrap
+  include Os::Bootstrap
 end
 
-include_recipe "osx-bootstrap::homebrew"
+include_recipe "os-bootstrap::homebrew"
 
 recipe = self
-prefix = Pathname.new(node["osx-bootstrap"]["prefix"])
-osx_bootstrap_ssh_dir = prefix + "var/user_data/ssh"
+prefix = Pathname.new(node["os-bootstrap"]["prefix"])
+os_bootstrap_ssh_dir = prefix + "var/user_data/ssh"
 ssh_dir = owner_dir + ".ssh"
-ssh_key_file = Pathname.glob("#{osx_bootstrap_ssh_dir.to_s}/id_{rsa,dsa,ecdsa}").first
+ssh_key_file = Pathname.glob("#{os_bootstrap_ssh_dir.to_s}/id_{rsa,dsa,ecdsa}").first
 
 directory (owner_dir + ".ssh").to_s do
   owner recipe.owner
@@ -90,8 +90,8 @@ if ssh_key_file
   file installed_key_pub_file.to_s do
     lazy_content = lazy do
       key_data = installed_key_file.open("rb") { |f| f.read }
-      type = OsX::Bootstrap::Ssh.type(key_data)
-      base64_blob = Base64.strict_encode64(OsX::Bootstrap::Ssh.to_public_blob(key_data))
+      type = Os::Bootstrap::Ssh.type(key_data)
+      base64_blob = Base64.strict_encode64(Os::Bootstrap::Ssh.to_public_blob(key_data))
       comment = "#{recipe.owner}@#{Socket.gethostname.split(".", -1).first}"
 
       "#{type} #{base64_blob} #{comment}\n"

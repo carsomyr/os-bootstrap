@@ -20,14 +20,14 @@ require "pathname"
 require "shellwords"
 
 class << self
-  include OsX::Bootstrap
+  include Os::Bootstrap
 end
 
-include_recipe "osx-bootstrap::homebrew"
+include_recipe "os-bootstrap::homebrew"
 
 recipe = self
-prefix = Pathname.new(node["osx-bootstrap"]["prefix"])
-editor = node["osx-bootstrap"]["user"]["editor"]
+prefix = Pathname.new(node["os-bootstrap"]["prefix"])
+editor = node["os-bootstrap"]["user"]["editor"]
 terminal_command_arguments = []
 
 case editor

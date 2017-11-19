@@ -17,7 +17,7 @@
 require "openssl"
 require "pathname"
 
-module ::OsX
+module ::Os
   module Bootstrap
     module Ssh
       ELLIPTIC_CURVE_NAMES_TO_SSH_NAMES = {

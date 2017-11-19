@@ -15,10 +15,10 @@
 # the License.
 
 class << self
-  include OsX::Bootstrap
+  include Os::Bootstrap
 end
 
-include_recipe "osx-bootstrap::homebrew"
+include_recipe "os-bootstrap::homebrew"
 
 recipe = self
 script_file = (owner_dir + ".profile.d/0001_gnupg2.sh")

@@ -19,16 +19,16 @@ require "uri"
 
 class << self
   include Chef::Mixin::ShellOut
-  include OsX::Bootstrap
+  include Os::Bootstrap
 end
 
-include_recipe "osx-bootstrap::homebrew"
+include_recipe "os-bootstrap::homebrew"
 
 recipe = self
-prefix = Pathname.new(node["osx-bootstrap"]["prefix"])
+prefix = Pathname.new(node["os-bootstrap"]["prefix"])
 homebrew_dir = prefix + "Homebrew"
-xcode_url = node["osx-bootstrap"]["xcode"]["url"]
-volume_dir = Pathname.new(node["osx-bootstrap"]["volume_root"])
+xcode_url = node["os-bootstrap"]["xcode"]["url"]
+volume_dir = Pathname.new(node["os-bootstrap"]["volume_root"])
 caskroom_dir = prefix + "Caskroom"
 xcode_archive_file = Pathname.glob("#{volume_dir.to_s}/files/[Xx]code*.{dmg,xip}").last
 xcode_url ||= "file://#{URI.escape(xcode_archive_file.to_s)}" if xcode_archive_file && xcode_archive_file.file?
@@ -47,9 +47,9 @@ require "nokogiri"
 
 # Don't generate resources if the download URL couldn't be inferred or the cask is already installed.
 if xcode_url
-  ["Library/Taps/osx-bootstrap",
-   "Library/Taps/osx-bootstrap/homebrew-xcode",
-   "Library/Taps/osx-bootstrap/homebrew-xcode/Casks"].each do |dir_name|
+  ["Library/Taps/os-bootstrap",
+   "Library/Taps/os-bootstrap/homebrew-xcode",
+   "Library/Taps/os-bootstrap/homebrew-xcode/Casks"].each do |dir_name|
     directory (homebrew_dir + dir_name).to_s do
       owner recipe.owner
       group recipe.owner_group
@@ -58,7 +58,7 @@ if xcode_url
     end
   end
 
-  template (homebrew_dir + "Library/Taps/osx-bootstrap/homebrew-xcode/Casks/xcode.rb").to_s do
+  template (homebrew_dir + "Library/Taps/os-bootstrap/homebrew-xcode/Casks/xcode.rb").to_s do
     source "xcode-xcode.rb.erb"
     owner recipe.owner
     group recipe.owner_group

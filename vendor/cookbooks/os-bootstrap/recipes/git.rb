@@ -14,33 +14,26 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-require "pathname"
-
 class << self
-  include OsX::Bootstrap
+  include Os::Bootstrap
 end
 
-include_recipe "osx-bootstrap::homebrew"
+include_recipe "os-bootstrap::homebrew"
 
 recipe = self
-prefix = Pathname.new(node["osx-bootstrap"]["prefix"])
 
-package "postgresql" do
+# Provide a unique description so as not to conflict with Homebrew's `package[git]` resource.
+package "install `git` for #{recipe_full_name}" do
+  package_name "git"
   action :install
 end
 
-# Install the database server daemon.
-template "/Library/LaunchDaemons/homebrew.postgresql.server.plist" do
-  source "postgresql-homebrew.postgresql.server.plist.erb"
-  owner "root"
-  group "wheel"
+template (owner_dir + ".gitconfig").to_s do
+  source "git-gitconfig.erb"
+  owner recipe.owner
+  group recipe.owner_group
   mode 0644
-  helper(:prefix) { prefix }
-  helper(:owner) { recipe.owner }
-  notifies :restart, "service[homebrew.postgresql.server]", :immediately
+  helper(:user_full_name) { recipe.user_full_name }
+  helper(:user_email) { recipe.user_email }
   action :create
-end
-
-service "homebrew.postgresql.server" do
-  action :nothing
 end

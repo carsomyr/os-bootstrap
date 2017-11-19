@@ -17,7 +17,7 @@
 require "socket"
 
 class << self
-  include OsX::Bootstrap
+  include Os::Bootstrap
 end
 
 # The `plist_file` LWRP needs Nokogiri's XML parsing and querying capabilities.
@@ -31,12 +31,12 @@ addrs = Socket.getifaddrs.map do |interface|
   interface.addr.getnameinfo[0]
 end
 
-machine_info = node["osx-bootstrap"]["machine"]["by_mac_address"].each_pair.find do |mac_addr, _|
+machine_info = node["os-bootstrap"]["machine"]["by_mac_address"].each_pair.find do |mac_addr, _|
   addrs.include?(mac_addr)
 end
 
 machine_info &&= machine_info[1]
-machine_info ||= node["osx-bootstrap"]["machine"]
+machine_info ||= node["os-bootstrap"]["machine"]
 
 local_hostname = machine_info["local_hostname"]
 name = machine_info["name"]

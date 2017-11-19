@@ -15,7 +15,7 @@
 # the License.
 
 class << self
-  include OsX::Bootstrap
+  include Os::Bootstrap
 end
 
 # The `plist_file` LWRP needs Nokogiri's XML parsing and querying capabilities.
@@ -25,7 +25,7 @@ chef_gem "install `nokogiri` for #{recipe_full_name}" do
   action :install
 end
 
-prefs = node["osx-bootstrap"]["preferences"]
+prefs = node["os-bootstrap"]["preferences"]
 
 plist_file "Apple Global Domain" do
   # Enable or disable the menu of accented keys.

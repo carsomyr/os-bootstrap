@@ -18,13 +18,13 @@ require "etc"
 require "pathname"
 require "socket"
 
-module ::OsX
+module ::Os
   module Bootstrap
     module InstanceMethods
       RECIPE_NAME_PATTERN = Regexp.new("\\A(?:.+?)::(?:.+)\\z")
 
       def owner
-        @owner ||= node["osx-bootstrap"]["owner"] || ENV["SUDO_USER"] || Etc.getpwuid.name
+        @owner ||= node["os-bootstrap"]["owner"] || ENV["SUDO_USER"] || Etc.getpwuid.name
       end
 
       def owner_group
@@ -36,12 +36,12 @@ module ::OsX
       end
 
       def user_full_name
-        @user_full_name ||= node["osx-bootstrap"]["user"]["full_name"] \
+        @user_full_name ||= node["os-bootstrap"]["user"]["full_name"] \
           || Etc.getpwnam(owner).gecos
       end
 
       def user_email
-        @user_email ||= node["osx-bootstrap"]["user"]["email"] \
+        @user_email ||= node["os-bootstrap"]["user"]["email"] \
           || "#{owner}@#{Socket.gethostname}"
       end
 

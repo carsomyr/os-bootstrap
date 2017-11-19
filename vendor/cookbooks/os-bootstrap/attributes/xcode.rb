@@ -14,5 +14,4 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-default["osx-bootstrap"]["rbenv"]["global_version"] = "inherit"
-default["osx-bootstrap"]["rbenv"]["versions"] = ["inherit"]
+default["os-bootstrap"]["xcode"]["url"] = nil

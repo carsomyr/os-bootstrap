@@ -19,15 +19,15 @@ GIT
     ruby_rbenv (2.0.4)
 
 PATH
-  remote: vendor/cookbooks/osx-bootstrap
+  remote: vendor/cookbooks/os-bootstrap
   specs:
-    osx-bootstrap (0.9.0)
+    os-bootstrap (0.9.0)
       homebrew (>= 0.0.0)
       plist (>= 0.0.0)
       ruby_rbenv (>= 0.0.0)
 
 DEPENDENCIES
-  osx-bootstrap (>= 0)
+  os-bootstrap (>= 0)
   plist (>= 0)
   ruby_rbenv (>= 0)
 

@@ -14,11 +14,5 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-include_recipe "osx-bootstrap::homebrew"
-include_recipe "osx-bootstrap::ssh"
-include_recipe "osx-bootstrap::git"
-include_recipe "osx-bootstrap::bash"
-include_recipe "osx-bootstrap::xcode"
-include_recipe "osx-bootstrap::preferences"
-include_recipe "osx-bootstrap::machine"
-include_recipe "osx-bootstrap::includes"
+include_recipe "os-bootstrap::rbenv"
+include_recipe "os-bootstrap::postgresql"

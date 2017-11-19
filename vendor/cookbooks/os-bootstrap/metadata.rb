@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2014 Roy Liu
+# Copyright 2014-2017 Roy Liu
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
 # use this file except in compliance with the License. You may obtain a copy of
@@ -14,4 +14,18 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-default["osx-bootstrap"]["xcode"]["url"] = nil
+name "os-bootstrap"
+maintainer "Roy Liu"
+maintainer_email "carsomyr@gmail.com"
+license "Apache-2.0"
+description "An opinionated take on the kinds of configuration you'll be doing with Chef on macOS"
+long_description "An opinionated take on the kinds of configuration you'll be doing with Chef on macOS. We encourage" \
+  " users to customize this cookbook for their own needs."
+version "0.9.0"
+
+supports "mac_os_x"
+supports "mac_os_x_server"
+
+depends "homebrew"
+depends "plist"
+depends "ruby_rbenv"

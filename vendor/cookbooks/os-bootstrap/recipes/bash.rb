@@ -20,13 +20,13 @@ require "pathname"
 require "shellwords"
 
 class << self
-  include OsX::Bootstrap
+  include Os::Bootstrap
 end
 
-include_recipe "osx-bootstrap::homebrew"
+include_recipe "os-bootstrap::homebrew"
 
 recipe = self
-prefix = Pathname.new(node["osx-bootstrap"]["prefix"])
+prefix = Pathname.new(node["os-bootstrap"]["prefix"])
 
 package "bash" do
   action :install

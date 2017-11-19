@@ -14,18 +14,17 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-name "osx-bootstrap"
-maintainer "Roy Liu"
-maintainer_email "carsomyr@gmail.com"
-license "Apache-2.0"
-description "An opinionated take on the kinds of configuration you'll be doing with Chef on OS X"
-long_description "An opinionated take on the kinds of configuration you'll be doing with Chef on OS X. We encourage" \
-  " users to customize this cookbook for their own needs."
-version "0.9.0"
+class << self
+  include Os::Bootstrap
+end
 
-supports "mac_os_x"
-supports "mac_os_x_server"
+# Include recipes specified by the user.
 
-depends "homebrew"
-depends "plist"
-depends "ruby_rbenv"
+includes = node["os-bootstrap"]["includes"]
+
+includes = [includes] \
+  if includes.is_a?(String)
+
+includes.each do |recipe_name|
+  include_recipe infer_recipe_name(recipe_name)
+end

@@ -1,6 +1,6 @@
 {
   "name": "workstation",
   "run_list": [
-    "recipe[osx-bootstrap]"
+    "recipe[os-bootstrap]"
   ]
 }
