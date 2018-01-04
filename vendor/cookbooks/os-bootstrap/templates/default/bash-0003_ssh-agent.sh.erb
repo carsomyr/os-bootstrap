@@ -14,4 +14,4 @@ function kill_ssh_agent {
     ssh-agent -k
 }
 
-trap -- kill_ssh_agent EXIT
+trap -- kill_ssh_agent EXIT HUP
