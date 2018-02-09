@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # -*- coding: utf-8 -*-
 #
-# Copyright 2014-2017 Roy Liu
+# Copyright 2014-2018 Roy Liu
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
 # use this file except in compliance with the License. You may obtain a copy of
@@ -814,7 +814,7 @@ if __FILE__ == $0
       prefix: Pathname.new("/usr/local"),
       config_dir: Pathname.new("/Volumes/User Data"),
       rbenv_dir: Pathname.new("/usr/local/var/rbenv"),
-      rbenv_version: "2.4.0",
+      rbenv_version: "2.5.0",
       repo_url: "https://github.com/carsomyr/os-bootstrap",
       repo_branch: "master",
       ssh_key_file: nil,
