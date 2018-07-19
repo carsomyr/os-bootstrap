@@ -22,7 +22,6 @@ cask "xcode" do
   url <%= xcode_url.dump %>
   name "Xcode"
   homepage "https://developer.apple.com/xcode/"
-  license :closed
 
   postflight do
     xcode_app_dir = instance_exec(&find_app_dir)
