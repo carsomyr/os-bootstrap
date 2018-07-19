@@ -29,9 +29,9 @@ cask "xcode" do
     next \
       if !xcode_app_dir
 
-    Hbc.appdir.mkpath
+    appdir.mkpath
 
-    FileUtils.symlink(xcode_app_dir, Hbc.appdir + xcode_app_dir.basename)
+    FileUtils.symlink(xcode_app_dir, appdir + xcode_app_dir.basename)
   end
 
   uninstall_preflight do
@@ -40,6 +40,6 @@ cask "xcode" do
     next \
       if !xcode_app_dir
 
-    FileUtils.rm(Hbc.appdir + xcode_app_dir.basename)
+    FileUtils.rm(appdir + xcode_app_dir.basename)
   end
 end
