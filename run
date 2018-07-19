@@ -51,89 +51,89 @@ module Os
 
         REXML::Document.new("<root>#{str}</root>").root.children.each do |node|
           case node
-            when REXML::Text
+          when REXML::Text
+            first_line = true
+
+            node.value.split("\n", -1).each do |line|
+              if !first_line
+                acc += emit_line(line_acc || "")
+                line_acc = nil
+              end
+
+              first_word = true
+
+              # Apparently the string `" "` has special meaning for Ruby regular expressions, so we use a regex to
+              # force the issue.
+              line.split(single_space_pattern, -1).each do |word|
+                if line_acc
+                  if !first_word
+                    sep = " "
+                  else
+                    sep = ""
+                  end
+
+                  if @line_max && line_acc.size + sep.size + word.size > @line_max
+                    # Emit the accumulator and move on to building the next line.
+                    acc += emit_line(line_acc)
+                  else
+                    # Accumulate the word.
+                    line_acc += sep + word
+                    first_word = false
+
+                    next
+                  end
+                end
+
+                # Trim the word down to size.
+                while @line_max && word.size > @line_max
+                  acc += emit_line(word[0...(@line_max - 1)] + "-")
+                  word = word[(@line_max - 1)...(word.size)]
+                end
+
+                line_acc = word
+                first_word = false
+              end
+
+              first_line = false
+            end
+          when REXML::Element
+            case node.name
+            when "nobreak"
               first_line = true
 
-              node.value.split("\n", -1).each do |line|
+              (node.text || "").split("\n", -1).each do |line|
                 if !first_line
                   acc += emit_line(line_acc || "")
                   line_acc = nil
                 end
 
-                first_word = true
+                if line_acc
+                  if @line_max && line_acc.size + line.size > @line_max
+                    # Emit the accumulator and move on to building the next line.
+                    acc += emit_line(line_acc)
+                  else
+                    # Accumulate the line.
+                    line_acc += line
+                    first_line = false
 
-                # Apparently the string `" "` has special meaning for Ruby regular expressions, so we use a regex to
-                # force the issue.
-                line.split(single_space_pattern, -1).each do |word|
-                  if line_acc
-                    if !first_word
-                      sep = " "
-                    else
-                      sep = ""
-                    end
-
-                    if @line_max && line_acc.size + sep.size + word.size > @line_max
-                      # Emit the accumulator and move on to building the next line.
-                      acc += emit_line(line_acc)
-                    else
-                      # Accumulate the word.
-                      line_acc += sep + word
-                      first_word = false
-
-                      next
-                    end
+                    next
                   end
-
-                  # Trim the word down to size.
-                  while @line_max && word.size > @line_max
-                    acc += emit_line(word[0...(@line_max - 1)] + "-")
-                    word = word[(@line_max - 1)...(word.size)]
-                  end
-
-                  line_acc = word
-                  first_word = false
                 end
 
+                # Trim the line down to size.
+                while @line_max && line.size > @line_max
+                  acc += emit_line(line[0...(@line_max - 1)] + "-")
+                  line = line[(@line_max - 1)...(line.size)]
+                end
+
+                line_acc = line
                 first_line = false
               end
-            when REXML::Element
-              case node.name
-                when "nobreak"
-                  first_line = true
-
-                  (node.text || "").split("\n", -1).each do |line|
-                    if !first_line
-                      acc += emit_line(line_acc || "")
-                      line_acc = nil
-                    end
-
-                    if line_acc
-                      if @line_max && line_acc.size + line.size > @line_max
-                        # Emit the accumulator and move on to building the next line.
-                        acc += emit_line(line_acc)
-                      else
-                        # Accumulate the line.
-                        line_acc += line
-                        first_line = false
-
-                        next
-                      end
-                    end
-
-                    # Trim the line down to size.
-                    while @line_max && line.size > @line_max
-                      acc += emit_line(line[0...(@line_max - 1)] + "-")
-                      line = line[(@line_max - 1)...(line.size)]
-                    end
-
-                    line_acc = line
-                    first_line = false
-                  end
-                else
-                  raise "Invalid node name #{node.name.dump}"
-              end
             else
-              raise "Invalid node class #{node.class.name.dump}"
+              raise "Invalid node name #{node.name.dump}"
+            end
+          else
+            raise "Invalid node class #{node.class.name.dump}"
           end
         end
 
@@ -335,13 +335,12 @@ module Os
         def rbenv(rbenv_root, &block)
           # Set special values for certain rbenv environment variables, run the given block, and restore them
           # afterwards.
-          ENV["RBENV_ROOT"], ENV["RBENV_DIR"], ENV["RBENV_HOOK_PATH"], ENV["RBENV_VERSION"] \
-            = [ENV["RBENV_ROOT"], ENV["RBENV_DIR"], ENV["RBENV_HOOK_PATH"], ENV["RBENV_VERSION"]].tap do
-            ENV["RBENV_ROOT"], ENV["RBENV_DIR"], ENV["RBENV_HOOK_PATH"], ENV["RBENV_VERSION"] \
-              = [rbenv_root.to_s, nil, nil, nil]
-
-            block.call((rbenv_root + "bin/rbenv").to_s)
-          end
+          ENV["RBENV_ROOT"], ENV["RBENV_DIR"], ENV["RBENV_HOOK_PATH"], ENV["RBENV_VERSION"] =
+              [ENV["RBENV_ROOT"], ENV["RBENV_DIR"], ENV["RBENV_HOOK_PATH"], ENV["RBENV_VERSION"]].tap do
+                ENV["RBENV_ROOT"], ENV["RBENV_DIR"], ENV["RBENV_HOOK_PATH"], ENV["RBENV_VERSION"] =
+                    [rbenv_root.to_s, nil, nil, nil]
+                block.call((rbenv_root + "bin/rbenv").to_s)
+              end
         end
 
         # Sets up a special environment for Git's SSH protocol.
@@ -869,12 +868,12 @@ if __FILE__ == $0
   end.parse(ARGV)
 
   case positional_args.size
-    when 1
-      user_opts[:repo_url] = positional_args.first
-    when 0
-      # Use default values.
-    else
-      raise "Please specify exactly one Git repository"
+  when 1
+    user_opts[:repo_url] = positional_args.first
+  when 0
+    # Use default values.
+  else
+    raise "Please specify exactly one Git repository"
   end
 
   opts = opts.merge(user_opts)
