@@ -89,18 +89,18 @@ if xcode_url
       major_version = xcode_version.split(".", -1)[0]
 
       case major_version
-        when "9"
-          license_version = "EA1478"
-        when "8"
-          license_version = "EA1421"
-        when "7"
-          license_version = "EA1327"
-        when "6"
-          license_version = "EA1151"
-        when "5"
-          license_version = "EA1057"
-        else
-          raise "Unsupported Xcode major version #{major_version}"
+      when "9", "10"
+        license_version = "EA1478"
+      when "8"
+        license_version = "EA1421"
+      when "7"
+        license_version = "EA1327"
+      when "6"
+        license_version = "EA1151"
+      when "5"
+        license_version = "EA1057"
+      else
+        raise "Unsupported Xcode major version #{major_version}"
       end
 
       # "Accept" the Xcode license by creating a magic plist file populated with the EULA and Xcode versions.
