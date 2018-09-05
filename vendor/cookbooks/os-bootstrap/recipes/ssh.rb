@@ -62,15 +62,6 @@ directory "create `.profile.d` for #{recipe_full_name}" do
   action :create
 end
 
-# Install the Bash hook.
-template (owner_dir + ".profile.d/0003_ssh-agent.sh").to_s do
-  source "bash-0003_ssh-agent.sh.erb"
-  owner recipe.owner
-  group recipe.owner_group
-  mode 0644
-  action :create
-end
-
 if ssh_key_file
   installed_key_file = owner_dir + ".ssh" + ssh_key_file.basename
   installed_key_pub_file = owner_dir + ".ssh/#{ssh_key_file.basename.to_s}.pub"
