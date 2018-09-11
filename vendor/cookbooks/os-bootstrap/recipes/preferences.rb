@@ -72,24 +72,24 @@ plist_file "com.apple.ActivityMonitor" do
   # Change the kind of processes displayed.
   set "ShowCategory",
       case prefs["activity_monitor"]["view_mode"]
-        when "all"
-          100
-        when "all_hierarchical"
-          101
-        when "user"
-          102
-        when "system"
-          103
-        when "other"
-          104
-        when "active"
-          105
-        when "inactive"
-          106
-        when "windowed"
-          107
-        else
-          raise ArgumentError, "Invalid Activity Monitor view mode"
+      when "all"
+        100
+      when "all_hierarchical"
+        101
+      when "user"
+        102
+      when "system"
+        103
+      when "other"
+        104
+      when "active"
+        105
+      when "inactive"
+        106
+      when "windowed"
+        107
+      else
+        raise ArgumentError, "Invalid Activity Monitor view mode"
       end
 
   format :binary
@@ -134,14 +134,14 @@ plist_file "com.apple.Terminal" do
   # Set the window action to take when the shell exits.
   set "Window Settings", profile, "shellExitAction",
       case prefs["terminal"]["window_action_on_shell_exit"]
-        when "close"
-          0
-        when "close_if_clean_exit"
-          1
-        when "nothing"
-          2
-        else
-          raise ArgumentError, "Invalid Terminal window action on shell exit"
+      when "close"
+        0
+      when "close_if_clean_exit"
+        1
+      when "nothing"
+        2
+      else
+        raise ArgumentError, "Invalid Terminal window action on shell exit"
       end
 
   format :binary
@@ -175,22 +175,22 @@ plist_file "com.apple.finder" do
   # Set the new window view behavior.
   set "NewWindowTarget",
       case prefs["finder"]["new_window_view_mode"]
-        when "computer"
-          "PfCm"
-        when "boot_volume"
-          "PfVo"
-        when "user_home"
-          "PfHm"
-        when "user_desktop"
-          "PfDe"
-        when "user_documents"
-          "PfDo"
-        when "user_icloud"
-          "PfID"
-        when "user_all_files"
-          "PfAF"
-        else
-          raise ArgumentError, "Invalid Finder new window view mode"
+      when "computer"
+        "PfCm"
+      when "boot_volume"
+        "PfVo"
+      when "user_home"
+        "PfHm"
+      when "user_desktop"
+        "PfDe"
+      when "user_documents"
+        "PfDo"
+      when "user_icloud"
+        "PfID"
+      when "user_all_files"
+        "PfAF"
+      else
+        raise ArgumentError, "Invalid Finder new window view mode"
       end
 
   # Enable or disable the warning about changing file extensions.
@@ -200,6 +200,18 @@ plist_file "com.apple.finder" do
 
   # We need to restart `Finder` for the changes to take effect.
   notifies :run, "execute[`killall -- Finder`]", :immediately
+
+  action :create
+end
+
+plist_file "com.apple.menuextra.battery" do
+  # Show the percentage of battery charge left.
+  set "ShowPercent", prefs["battery"]["show_percent"] ? "YES" : "NO"
+
+  format :binary
+
+  # We need to restart `SystemUIServer` for the changes to take effect.
+  notifies :run, "execute[`killall -- SystemUIServer`]", :immediately
 
   action :create
 end

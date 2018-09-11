@@ -15,6 +15,7 @@
 # the License.
 
 default["os-bootstrap"]["preferences"]["activity_monitor"]["view_mode"] = "all"
+default["os-bootstrap"]["preferences"]["battery"]["show_percent"] = true
 default["os-bootstrap"]["preferences"]["clock"]["flash_date_separators"] = false
 default["os-bootstrap"]["preferences"]["clock"]["format"] = "EEE MMM d  H:mm"
 default["os-bootstrap"]["preferences"]["clock"]["is_analog"] = false
