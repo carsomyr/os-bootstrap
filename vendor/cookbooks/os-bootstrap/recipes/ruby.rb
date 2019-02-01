@@ -15,4 +15,3 @@
 # the License.
 
 include_recipe "os-bootstrap::rbenv"
-include_recipe "os-bootstrap::postgresql"
