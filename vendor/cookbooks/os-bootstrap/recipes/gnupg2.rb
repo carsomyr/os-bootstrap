@@ -56,7 +56,7 @@ template script_file.to_s do
   source "bash-0001_gnupg2.sh.erb"
   owner recipe.owner
   group recipe.owner_group
-  mode 0644
+  mode 0755
   action :create
 end
 
