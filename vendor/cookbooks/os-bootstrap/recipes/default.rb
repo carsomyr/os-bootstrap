@@ -14,11 +14,10 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-include_recipe "os-bootstrap::homebrew"
-include_recipe "os-bootstrap::ssh"
-include_recipe "os-bootstrap::git"
 include_recipe "os-bootstrap::bash"
-include_recipe "os-bootstrap::xcode"
-include_recipe "os-bootstrap::preferences"
+include_recipe "os-bootstrap::git"
+include_recipe "os-bootstrap::homebrew"
 include_recipe "os-bootstrap::machine"
-include_recipe "os-bootstrap::includes"
+include_recipe "os-bootstrap::preferences"
+include_recipe "os-bootstrap::ssh"
+include_recipe "os-bootstrap::xcode"
