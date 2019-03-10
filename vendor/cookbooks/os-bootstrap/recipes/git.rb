@@ -28,6 +28,10 @@ package "install `git` for #{recipe_full_name}" do
   action :install
 end
 
+package "git-lfs" do
+  action :install
+end
+
 template (owner_dir + ".gitconfig").to_s do
   source "git-gitconfig.erb"
   owner recipe.owner
