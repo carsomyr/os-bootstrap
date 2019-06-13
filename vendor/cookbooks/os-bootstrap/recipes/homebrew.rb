@@ -70,7 +70,7 @@ homebrew_paths = [
 
 homebrew_install_dirs = [
     "bin", "etc", "include", "lib", "lib/pkgconfig", "sbin", "share", "var", "opt",
-    "var/log", "share/locale", "share/man",
+    "var/log", "var/homebrew", "var/homebrew/linked", "share/locale", "share/man",
     "share/man/man1", "share/man/man2", "share/man/man3", "share/man/man4",
     "share/man/man5", "share/man/man6", "share/man/man7", "share/man/man8",
     "share/info", "share/doc", "share/aclocal",
