@@ -31,44 +31,47 @@ editor = node["os-bootstrap"]["user"]["editor"]
 terminal_command_arguments = []
 
 case editor
-  when "emacs"
-    package "emacs" do
-      options "--cocoa"
-      action :install
-    end
+when "emacs"
+  homebrew_tap "railwaycat/emacsmacport" do
+    action :tap
+  end
 
-    template (owner_dir + ".emacs").to_s do
-      source "editor-.emacs.erb"
-      owner recipe.owner
-      group recipe.owner_group
-      mode 0644
-      action :create
-    end
+  package "emacs-mac" do
+    action :install
+  end
 
-    # Just in case you created this first as root with `sudo -- emacs`.
-    directory (owner_dir + ".emacs.d").to_s do
-      owner recipe.owner
-      group recipe.owner_group
-      mode 0700
-      action :create
-    end
+  template (owner_dir + ".emacs").to_s do
+    source "editor-.emacs.erb"
+    owner recipe.owner
+    group recipe.owner_group
+    mode 0644
+    action :create
+  end
 
-    terminal_command_arguments.push("-nw")
-  when "vim"
-    package "macvim" do
-      options "--override-system-vim"
-      action :install
-    end
+  # Just in case you created this first as root with `sudo -- emacs`.
+  directory (owner_dir + ".emacs.d").to_s do
+    owner recipe.owner
+    group recipe.owner_group
+    mode 0700
+    action :create
+  end
 
-    template (owner_dir + ".vimrc").to_s do
-      source "editor-.vimrc.erb"
-      owner recipe.owner
-      group recipe.owner_group
-      mode 0644
-      action :create
-    end
-  else
-    raise "Unsupported editor #{editor.dump}"
+  terminal_command_arguments.push("-nw")
+when "vim"
+  package "macvim" do
+    options "--override-system-vim"
+    action :install
+  end
+
+  template (owner_dir + ".vimrc").to_s do
+    source "editor-.vimrc.erb"
+    owner recipe.owner
+    group recipe.owner_group
+    mode 0644
+    action :create
+  end
+else
+  raise "Unsupported editor #{editor.dump}"
 end
 
 directory "create `.profile.d` for #{recipe_full_name}" do
@@ -85,8 +88,8 @@ template (owner_dir + ".profile.d/0002_editor.sh").to_s do
   owner recipe.owner
   group recipe.owner_group
   mode 0644
-  helper(:prefix) { prefix }
-  helper(:editor) { editor }
-  helper(:arguments) { terminal_command_arguments }
+  helper(:prefix) {prefix}
+  helper(:editor) {editor}
+  helper(:arguments) {terminal_command_arguments}
   action :create
 end
