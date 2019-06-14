@@ -36,7 +36,7 @@ when "emacs"
     action :tap
   end
 
-  package "emacs-mac" do
+  homebrew_cask "emacs-mac" do
     action :install
   end
 
