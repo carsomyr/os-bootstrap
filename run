@@ -631,7 +631,7 @@ EOS
           end
 
           file chef_client_executable => [rbenv_installed] do
-            gem_install(rbenv_dir, "chef")
+            gem_install(rbenv_dir, "chef:< 15")
           end
 
           file librarian_chef_executable => [rbenv_installed] do
