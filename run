@@ -260,8 +260,10 @@ module Os
                 # After `softwareupdate` has run, look in the plist of recommended updates. Some sort of command-line
                 # tools package should be there.
 
-                xml = IO.popen(["plutil", "-convert", "xml1", "-o", "-", "--",
-                                "/Library/Preferences/com.apple.SoftwareUpdate.plist"]) do |io|
+                xml = IO.popen([
+                    "plutil", "-convert", "xml1", "-o", "-", "--",
+                    "/Library/Preferences/com.apple.SoftwareUpdate.plist"
+                ]) do |io|
                   io.read
                 end
 
@@ -280,8 +282,10 @@ module Os
                     "/dict[key[text()=\"Display Name\"]" \
                     "/following::string[position()=1 and starts-with(text(), \"Command Line \")]]"
                 ).map do |node|
-                  [node.elements["key[text()=\"Identifier\"]/following::string[position()=1]/text()"],
-                   node.elements["key[text()=\"Display Version\"]/following::string[position()=1]/text()"]]
+                  [
+                      node.elements["key[text()=\"Identifier\"]/following::string[position()=1]/text()"],
+                      node.elements["key[text()=\"Display Version\"]/following::string[position()=1]/text()"]
+                  ]
                 end.sort do |lhs, rhs|
                   -(lhs[1].to_s.to_f <=> rhs[1].to_s.to_f)
                 end.map do |identifier, display_version|
@@ -355,6 +359,11 @@ module Os
         # Pretty prints the given message.
         def pp(type = nil, message = nil)
           if type
+            case type
+            when :info
+              message = message.encode(xml: :text)
+            end
+
             puts Rake.application.formatters[type].format(message)
           else
             puts
@@ -782,7 +791,7 @@ EOS
       task default: os_bootstrap_executable do
         # Display the post-installation notice.
         pp
-        pp(:heading, <<EOS
+        pp(:xml_heading, <<EOS
 Installation complete!
 
 We've placed the <nobreak>#{os_bootstrap_executable.basename.to_s.encode(xml: :text)}</nobreak> script in <nobreak>\
@@ -895,7 +904,7 @@ if __FILE__ == $0
 
   # Set the pretty print formatters.
   Rake.application.formatters = {
-      heading: Os::Bootstrap::Formatter.new(
+      xml_heading: Os::Bootstrap::Formatter.new(
           "#{tty_blue}*#{"-" * 118}*#{tty_reset}",
           "#{tty_blue}*#{"-" * 118}*#{tty_reset}",
           "#{tty_blue}|#{tty_reset} ", " #{tty_blue}|#{tty_reset}", 116
@@ -946,7 +955,7 @@ if __FILE__ == $0
 
   opts[:repo_dir] = prefix + "var/user_data/git/#{m[1]}-#{Digest::SHA1.hexdigest(repo_url)[0...7]}"
 
-  pp(:heading, <<EOS
+  pp(:xml_heading, <<EOS
 Hello from the OS Bootstrap installer!
 
 We're just a few minutes away from provisioning your machine with Chef. Before proceeding, please confirm these\
