@@ -196,8 +196,8 @@ module Os
           [target, deps]
         end
 
-        # Creates a writeable directory along with any missing parent directories.
-        def writeable_directory(target_deps)
+        # A task for creating a writeable directory along with any missing parent directories.
+        def recursive_writeable_directories(target_deps)
           target, deps = normalize_target_deps(target_deps)
 
           return nil \
@@ -206,7 +206,7 @@ module Os
           raise "Target must be a directory" \
             if target.exist?
 
-          parent_task = writeable_directory target.parent => deps
+          parent_task = recursive_writeable_directories target.parent => deps
 
           if parent_task
             task_deps = deps + [parent_task]
@@ -225,11 +225,30 @@ module Os
           end
         end
 
-        # Creates a file along with any missing parent directories.
-        def with_parent_directory(target_deps, &block)
+        # Creates a writeable directory along with any missing parent directories.
+        def create_recursive_writeable_directories(directory)
+          if directory.directory?
+            return nil
+          end
+
+          create_recursive_writeable_directories(directory.parent)
+
+          as_user("root") do
+            mkdir directory
+
+            # Set group writeability and ownership to the `admin` group, which the user is presumed to be a member of.
+            chmod 0775, directory
+            chown nil, "admin", directory
+          end
+
+          directory
+        end
+
+        # A task for creating a file along with any missing parent directories.
+        def file_with_parent_directories(target_deps, &block)
           target, deps = normalize_target_deps(target_deps)
 
-          parent_task = writeable_directory target.parent => deps
+          parent_task = recursive_writeable_directories target.parent => deps
 
           if parent_task
             task_deps = deps + [parent_task]
@@ -260,10 +279,12 @@ module Os
                 # After `softwareupdate` has run, look in the plist of recommended updates. Some sort of command-line
                 # tools package should be there.
 
-                xml = IO.popen([
-                    "plutil", "-convert", "xml1", "-o", "-", "--",
-                    "/Library/Preferences/com.apple.SoftwareUpdate.plist"
-                ]) do |io|
+                xml = IO.popen(
+                    [
+                        "plutil", "-convert", "xml1", "-o", "-", "--",
+                        "/Library/Preferences/com.apple.SoftwareUpdate.plist"
+                    ]
+                ) do |io|
                   io.read
                 end
 
@@ -432,19 +453,26 @@ module Os
 
       namespace :os_bootstrap do
         user_data_dir = prefix + "var/user_data"
-        git_ssh_executable = user_data_dir + "ssh/git-ssh"
-        ssh_installed = user_data_dir + "ssh/.installed.rake"
-        command_line_tools_installed = user_data_dir + "command_line_tools/.installed.rake"
-        rbenv_installed = user_data_dir + "rbenv/.installed-#{rbenv_version}.rake"
+        receipts_dir = user_data_dir + "receipts"
+        installed_receipts_dir = receipts_dir + "installed-receipts-dir"
+        installed_command_line_tools = receipts_dir + "installed-command-line-tools"
+        installed_rbenv = receipts_dir + "installed-rbenv"
+        git_ssh_executable = user_data_dir + "bin/git-ssh"
         chef_config_file = repo_dir + "config/client.rb"
-        chef_installed = user_data_dir + "chef/.installed-#{repo_dir.basename.to_s}.rake"
+        installed_user = receipts_dir + "installed-user-#{repo_dir.basename.to_s}"
+
+        file installed_receipts_dir do
+          create_recursive_writeable_directories(receipts_dir)
+
+          touch installed_receipts_dir, verbose: false
+        end
 
         namespace :ssh do
           if ssh_key_file
             installed_key_file = user_data_dir + "ssh" + ssh_key_file.basename
 
             if installed_key_file != ssh_key_file
-              with_parent_directory installed_key_file => ssh_key_file do
+              file_with_parent_directories installed_key_file => ssh_key_file do
                 pp(:info, "Write the SSH private key file to #{installed_key_file.to_s}")
 
                 as_user do
@@ -462,7 +490,7 @@ module Os
           end
 
           desc "Writes a Git SSH wrapper executable to #{git_ssh_executable.to_s.dump}"
-          with_parent_directory git_ssh_executable => installed_key_deps do
+          file_with_parent_directories git_ssh_executable => [installed_receipts_dir] + installed_key_deps do
             ssh_command = ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null"]
             ssh_command += ["-i", installed_key_file.to_s] \
               if installed_key_file
@@ -485,12 +513,8 @@ EOS
 
               # Assign executable bits.
               chmod "+x", git_ssh_executable
-            end
-          end
 
-          with_parent_directory ssh_installed => git_ssh_executable do
-            as_user do
-              touch ssh_installed
+              touch git_ssh_executable
             end
           end
         end
@@ -507,9 +531,11 @@ EOS
             softwareupdate_install
           end
 
-          with_parent_directory command_line_tools_installed => [clt_bom_file, clt_plist_file] do
+          file_with_parent_directories installed_command_line_tools => [
+              clt_bom_file, clt_plist_file, installed_receipts_dir
+          ] do
             as_user do
-              touch command_line_tools_installed
+              touch installed_command_line_tools
             end
           end
         end
@@ -517,24 +543,41 @@ EOS
         namespace :rbenv do
           ruby_build_dir = rbenv_dir + "plugins/ruby-build"
           ruby_build_definition = ruby_build_dir + "share/ruby-build/#{rbenv_version}"
+          installed_rbenv_repo_dir = receipts_dir + "installed-rbenv-repo-dir"
+          installed_rbenv_repo = receipts_dir + "installed-rbenv-repo"
+          installed_ruby_build_repo = receipts_dir + "installed-ruby-build-repo"
+
+          file installed_rbenv_repo_dir do
+            create_recursive_writeable_directories(rbenv_dir)
+
+            touch installed_rbenv_repo_dir, verbose: false
+          end
 
           desc "Clones the rbenv repository into #{rbenv_dir.to_s.dump}"
-          with_parent_directory rbenv_dir + ".git" => command_line_tools_installed do
+          file_with_parent_directories installed_rbenv_repo => [
+              installed_command_line_tools, installed_rbenv_repo_dir
+          ] do
             pp(:info, "Clone the rbenv repository")
 
             as_user do
               cd rbenv_dir do
                 sh "git", "init"
-                sh "git", "remote", "add", "--", "origin", "https://github.com/rbenv/rbenv"
-                sh "git", "fetch"
-                sh "git", "remote", "set-head", "--", "origin", "master"
+
+                sh "git", "remote", "add", "-f", "-m", "master", "--", "origin",
+                   "https://github.com/rbenv/rbenv" do
+                  # Swallow a nonzero exit status.
+                end
+
                 sh "git", "reset", "--hard", "origin/master"
+                sh "git", "branch", "--set-upstream-to", "origin/master", "--", "master"
               end
+
+              touch installed_rbenv_repo
             end
           end
 
           desc "Clones the ruby-build repository into #{ruby_build_dir.to_s.dump}"
-          directory (ruby_build_dir + ".git").to_s => [command_line_tools_installed, rbenv_dir] do
+          file_with_parent_directories installed_ruby_build_repo => [installed_command_line_tools, installed_rbenv_repo] do
             pp(:info, "Clone the ruby-build repository")
 
             as_user do
@@ -542,38 +585,46 @@ EOS
 
               cd ruby_build_dir do
                 sh "git", "init"
-                sh "git", "remote", "add", "--", "origin", "https://github.com/rbenv/ruby-build"
-                sh "git", "fetch"
-                sh "git", "remote", "set-head", "--", "origin", "master"
+
+                sh "git", "remote", "add", "-f", "-m", "master", "--", "origin",
+                   "https://github.com/rbenv/ruby-build" do
+                  # Swallow a nonzero exit status.
+                end
+
                 sh "git", "reset", "--hard", "origin/master"
+                sh "git", "branch", "--set-upstream-to", "origin/master", "--", "master"
               end
+
+              touch installed_ruby_build_repo
             end
           end
 
           desc "Updates the ruby-build repository"
-          file ruby_build_definition => ruby_build_dir + ".git" do
+          file ruby_build_definition => installed_ruby_build_repo do
             pp(:info, "Update the ruby-build repository")
 
             as_user do
               cd ruby_build_dir do
                 sh "git", "pull"
               end
+
+              touch ruby_build_definition
             end
           end
 
           desc "Installs the default rbenv Ruby"
-          with_parent_directory rbenv_installed => [rbenv_dir + ".git", ruby_build_definition] do
+          file_with_parent_directories installed_rbenv => [installed_ruby_build_repo, ruby_build_definition] do
             pp(:info, "Install rbenv Ruby version #{rbenv_version}")
 
             as_user do
               rbenv(rbenv_dir) do |rbenv|
-                sh rbenv, "install", rbenv_version
+                sh rbenv, "install", "-s", rbenv_version
               end
 
               # Set the default rbenv Ruby version.
               (rbenv_dir + "version").open("wb") {|f| f.write("#{rbenv_version}\n")}
 
-              touch rbenv_installed
+              touch installed_rbenv
             end
           end
         end
@@ -581,6 +632,8 @@ EOS
         namespace :chef do
           installed_attribute_json_file = user_data_dir + "chef/attributes.json"
           installed_attribute_yaml_file = user_data_dir + "chef/attributes.yml"
+          installed_user_repo_dir = receipts_dir + "installed-user-repo-dir-#{repo_dir.basename.to_s}"
+          installed_user_repo = receipts_dir + "installed-user-repo-#{repo_dir.basename.to_s}"
           cheffile_lock = repo_dir + "Cheffile.lock"
           chef_client_executable = rbenv_dir + "versions/#{rbenv_version}/bin/chef-client"
           librarian_chef_executable = rbenv_dir + "versions/#{rbenv_version}/bin/librarian-chef"
@@ -590,7 +643,7 @@ EOS
 
             deps.each {|dep| file dep}
 
-            with_parent_directory installed_attribute_json_file => deps do
+            file_with_parent_directories installed_attribute_json_file => deps do
               pp(:info, "Write the JSONified Chef attribute file to #{installed_attribute_json_file.to_s}")
 
               as_user do
@@ -599,7 +652,7 @@ EOS
             end
 
             if !deps.find {|dep| dep == installed_attribute_yaml_file}
-              with_parent_directory installed_attribute_yaml_file => deps do
+              file_with_parent_directories installed_attribute_yaml_file => deps do
                 pp(:info, "Write the YAMLized Chef attribute file to #{installed_attribute_yaml_file.to_s}")
 
                 as_user do
@@ -613,35 +666,53 @@ EOS
             installed_attribute_deps = []
           end
 
+          file installed_user_repo_dir do
+            create_recursive_writeable_directories(repo_dir)
+
+            touch installed_user_repo_dir, verbose: false
+          end
+
           desc "Clones the user's Chef repository into #{repo_dir.to_s.dump}"
-          with_parent_directory repo_dir => [ssh_installed, command_line_tools_installed] do
+          file_with_parent_directories installed_user_repo => [
+              installed_command_line_tools, git_ssh_executable, installed_user_repo_dir
+          ] do
             pp(:info, "Clone the Chef repository at #{repo_url} (#{repo_branch})")
 
             as_user do
               git_ssh(git_ssh_executable) do
-                sh "git", "clone", "-b", repo_branch, "--", repo_url, repo_dir.to_s
+                cd repo_dir do
+                  sh "git", "init"
+
+                  sh "git", "remote", "add", "-f", "-m", repo_branch, "--", "origin", repo_url do
+                    # Swallow a nonzero exit status.
+                  end
+
+                  sh "git", "reset", "--hard", "origin/#{repo_branch}"
+                  sh "git", "branch", "--set-upstream-to", "origin/#{repo_branch}", "--", repo_branch
+                end
               end
+
+              raise "Please provide a Chef client configuration file located at #{chef_config_file.to_s.dump}" \
+                if !chef_config_file.exist?
+
+              raise "Please provide a `Cheffile.lock` located at #{cheffile_lock.to_s.dump}" \
+                if !cheffile_lock.exist?
+
+              touch installed_user_repo
             end
-
-            raise "Please provide a Chef client configuration file located at #{chef_config_file.to_s.dump}" \
-              if !chef_config_file.exist?
-
-            raise "Please provide a `Cheffile.lock` located at #{cheffile_lock.to_s.dump}" \
-              if !cheffile_lock.exist?
           end
 
-          file chef_client_executable => [rbenv_installed] do
+          file chef_client_executable => [installed_rbenv] do
             gem_install(rbenv_dir, "chef:< 15")
           end
 
-          file librarian_chef_executable => [rbenv_installed] do
+          file librarian_chef_executable => [installed_rbenv] do
             gem_install(rbenv_dir, "librarian-chef")
           end
 
           desc "Runs `librarian-chef install` in the Chef repository"
-          with_parent_directory chef_installed => [
-              ssh_installed, command_line_tools_installed, rbenv_installed, repo_dir,
-              chef_client_executable, librarian_chef_executable
+          file_with_parent_directories installed_user => [
+              installed_user_repo, chef_client_executable, librarian_chef_executable
           ] + installed_attribute_deps do
             pp(:info, "Run `librarian-chef install` in the Chef repository")
 
@@ -654,14 +725,14 @@ EOS
                 end
               end
 
-              touch chef_installed
+              touch installed_user
             end
           end
         end
 
         desc "Writes an executable to #{os_bootstrap_executable.to_s.dump}"
-        with_parent_directory os_bootstrap_executable => [
-            ssh_installed, rbenv_installed, command_line_tools_installed, chef_installed
+        file_with_parent_directories os_bootstrap_executable => [
+            installed_rbenv, installed_command_line_tools, installed_user, git_ssh_executable
         ] do
           rbenv_executable = rbenv_dir + "bin/rbenv"
 
