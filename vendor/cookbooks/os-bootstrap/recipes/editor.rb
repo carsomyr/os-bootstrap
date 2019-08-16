@@ -32,11 +32,11 @@ terminal_command_arguments = []
 
 case editor
 when "emacs"
-  homebrew_tap "railwaycat/emacsmacport" do
+  homebrew_tap "d12frosted/emacs-plus" do
     action :tap
   end
 
-  homebrew_cask "emacs-mac" do
+  package "emacs-plus" do
     action :install
   end
 
@@ -88,8 +88,8 @@ template (owner_dir + ".profile.d/0002_editor.sh").to_s do
   owner recipe.owner
   group recipe.owner_group
   mode 0644
-  helper(:prefix) {prefix}
-  helper(:editor) {editor}
-  helper(:arguments) {terminal_command_arguments}
+  helper(:prefix) { prefix }
+  helper(:editor) { editor }
+  helper(:arguments) { terminal_command_arguments }
   action :create
 end
