@@ -49,11 +49,6 @@ versions = versions.push(global_version).uniq \
   if global_version
 
 monkey_patch = Module.new do
-  # Override the root path discovery mechanism.
-  define_method(:root_path) do
-    rbenv_root.to_s
-  end
-
   # Override this to be a no-op.
   def install_ruby_dependencies
   end
@@ -85,8 +80,8 @@ template (owner_dir + ".profile.d/0000_rbenv.sh").to_s do
   owner recipe.owner
   group recipe.owner_group
   mode 0644
-  helper(:rbenv_root) {prefix + "var/rbenv"}
-  helper(:rbenv_bin_dir) {prefix + "opt/rbenv/bin"}
+  helper(:rbenv_root) { prefix + "var/rbenv" }
+  helper(:rbenv_bin_dir) { prefix + "opt/rbenv/bin" }
   action :create
 end
 
@@ -103,6 +98,7 @@ versions.each do |version|
       recipe.as_user(recipe.owner) do
         recipe.rbenv_ruby version do
           user recipe.owner
+          root_path rbenv_root.to_s
           action :nothing
         end.run_action(:install)
       end
