@@ -63,8 +63,8 @@ if xcode_url
     owner recipe.owner
     group recipe.owner_group
     mode 0644
-    helper(:cask_version) {cask_version}
-    helper(:xcode_url) {xcode_url}
+    helper(:cask_version) { cask_version }
+    helper(:xcode_url) { xcode_url }
     action :create
   end
 
@@ -89,6 +89,8 @@ if xcode_url
       major_version = xcode_version.split(".", -1)[0]
 
       case major_version
+      when "11"
+        license_version = "EA1647"
       when "9", "10"
         license_version = "EA1478"
       when "8"
