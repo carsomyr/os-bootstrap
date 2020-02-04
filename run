@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # -*- coding: utf-8 -*-
 #
-# Copyright 2014-2018 Roy Liu
+# Copyright 2014-2020 Roy Liu
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
 # use this file except in compliance with the License. You may obtain a copy of
@@ -568,8 +568,7 @@ EOS
                   # Swallow a nonzero exit status.
                 end
 
-                sh "git", "reset", "--hard", "origin/master"
-                sh "git", "branch", "--set-upstream-to", "origin/master", "--", "master"
+                sh "git", "checkout", "master"
               end
 
               touch installed_rbenv_repo
@@ -591,8 +590,7 @@ EOS
                   # Swallow a nonzero exit status.
                 end
 
-                sh "git", "reset", "--hard", "origin/master"
-                sh "git", "branch", "--set-upstream-to", "origin/master", "--", "master"
+                sh "git", "checkout", "master"
               end
 
               touch installed_ruby_build_repo
@@ -687,8 +685,7 @@ EOS
                     # Swallow a nonzero exit status.
                   end
 
-                  sh "git", "reset", "--hard", "origin/#{repo_branch}"
-                  sh "git", "branch", "--set-upstream-to", "origin/#{repo_branch}", "--", repo_branch
+                  sh "git", "checkout", repo_branch
                 end
               end
 
