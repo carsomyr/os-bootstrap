@@ -410,7 +410,7 @@ module Os
               attribute_files += child_attribute_files
             end
           elsif path.file? && path.extname == ".yml"
-            attributes = YAML.load(path.open("rb") {|f| f.read}) || {}
+            attributes = YAML.load(path.open("rb") { |f| f.read }) || {}
             attribute_files.push(path)
           end
 
@@ -420,7 +420,7 @@ module Os
         # Deep merges the given `Hash`es.
         def deep_merge(lhs, rhs)
           if lhs.is_a?(Hash) && rhs.is_a?(Hash)
-            lhs.merge(rhs) {|_, lhs_value, rhs_value| deep_merge(lhs_value, rhs_value)}
+            lhs.merge(rhs) { |_, lhs_value, rhs_value| deep_merge(lhs_value, rhs_value) }
           else
             rhs
           end
@@ -494,7 +494,7 @@ module Os
             ssh_command = ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null"]
             ssh_command += ["-i", installed_key_file.to_s] \
               if installed_key_file
-            ssh_command = ssh_command.map {|arg| Shellwords.escape(arg)}.join(" ")
+            ssh_command = ssh_command.map { |arg| Shellwords.escape(arg) }.join(" ")
 
             as_user do
               git_ssh_executable.open("wb") do |f|
@@ -520,8 +520,18 @@ EOS
         end
 
         namespace :command_line_tools do
-          clt_bom_file = Pathname.new("/System/Library/receipts/com.apple.pkg.CLTools_Executables.bom")
-          clt_plist_file = Pathname.new("/System/Library/receipts/com.apple.pkg.CLTools_Executables.plist")
+          minor_version = IO.popen(["sw_vers", "-productVersion"]) { |f| f.read }.
+              match("\\A(?:[1-9]+[0-9]*)\\.([1-9]+[0-9]*)\\.(?:[1-9]+[0-9]*)")[1].to_i
+
+          if minor_version < 15
+            clt_bom_file = Pathname.new("/System/Library/receipts/com.apple.pkg.CLTools_Executables.bom")
+            clt_plist_file = Pathname.new("/System/Library/receipts/com.apple.pkg.CLTools_Executables.plist")
+          else
+            clt_bom_file =
+                Pathname.new("/Library/Apple/System/Library/Receipts/com.apple.pkg.CLTools_Executables.bom")
+            clt_plist_file =
+                Pathname.new("/Library/Apple/System/Library/Receipts/com.apple.pkg.CLTools_Executables.plist")
+          end
 
           file clt_bom_file do
             softwareupdate_install
@@ -620,7 +630,7 @@ EOS
               end
 
               # Set the default rbenv Ruby version.
-              (rbenv_dir + "version").open("wb") {|f| f.write("#{rbenv_version}\n")}
+              (rbenv_dir + "version").open("wb") { |f| f.write("#{rbenv_version}\n") }
 
               touch installed_rbenv
             end
@@ -639,22 +649,22 @@ EOS
           if chef_attribute_path
             attributes, deps = attributes_from_path(chef_attribute_path)
 
-            deps.each {|dep| file dep}
+            deps.each { |dep| file dep }
 
             file_with_parent_directories installed_attribute_json_file => deps do
               pp(:info, "Write the JSONified Chef attribute file to #{installed_attribute_json_file.to_s}")
 
               as_user do
-                installed_attribute_json_file.open("wb") {|f| f.write(JSON.generate(attributes))}
+                installed_attribute_json_file.open("wb") { |f| f.write(JSON.generate(attributes)) }
               end
             end
 
-            if !deps.find {|dep| dep == installed_attribute_yaml_file}
+            if !deps.find { |dep| dep == installed_attribute_yaml_file }
               file_with_parent_directories installed_attribute_yaml_file => deps do
                 pp(:info, "Write the YAMLized Chef attribute file to #{installed_attribute_yaml_file.to_s}")
 
                 as_user do
-                  installed_attribute_yaml_file.open("wb") {|f| f.write(YAML.dump(attributes))}
+                  installed_attribute_yaml_file.open("wb") { |f| f.write(YAML.dump(attributes)) }
                 end
               end
             end
