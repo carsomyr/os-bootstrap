@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2014-2016 Roy Liu
+# Copyright 2020 Roy Liu
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
 # use this file except in compliance with the License. You may obtain a copy of
@@ -14,11 +14,16 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-include_recipe "os-bootstrap::bash"
-include_recipe "os-bootstrap::git"
 include_recipe "os-bootstrap::homebrew"
-include_recipe "os-bootstrap::machine"
-include_recipe "os-bootstrap::postgresql"
-include_recipe "os-bootstrap::preferences"
-include_recipe "os-bootstrap::ssh"
-include_recipe "os-bootstrap::xcode"
+
+package "postgresql" do
+  action :install
+
+  # Start the PostgreSQL server.
+  notifies :run, "execute[`brew services -- restart postgresql`]", :immediately
+end
+
+execute "`brew services -- restart postgresql`" do
+  command ["brew", "services", "--", "restart", "postgresql"]
+  action :nothing
+end
