@@ -14,7 +14,13 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
+class << self
+  include Os::Bootstrap
+end
+
 include_recipe "os-bootstrap::homebrew"
+
+recipe = self
 
 package "postgresql" do
   action :install
@@ -25,5 +31,9 @@ end
 
 execute "`brew services -- restart postgresql`" do
   command ["brew", "services", "--", "restart", "postgresql"]
+
+  # Make sure to operate this command as the Homebrew user.
+  user recipe.owner
+
   action :nothing
 end
