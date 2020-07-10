@@ -70,6 +70,7 @@ if xcode_url
 
   homebrew_cask "xcode" do
     notifies :run, "ruby_block[run Xcode postinstall]", :immediately
+    options "--no-quarantine"
     action :update
   end
 
