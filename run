@@ -479,6 +479,9 @@ module Os
                   # Copy the private key file and secure the copy.
                   cp ssh_key_file, installed_key_file
                   chmod 0600, installed_key_file
+
+                  # Convert OpenSSH private keys to RSA format (see `https://github.com/net-ssh/net-ssh/issues/633`).
+                  sh "ssh-keygen", "-p", "-N", "", "-m", "pem", "-f", installed_key_file.to_s
                 end
               end
             end
