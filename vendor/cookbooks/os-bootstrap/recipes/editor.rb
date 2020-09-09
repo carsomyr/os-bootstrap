@@ -59,7 +59,6 @@ when "emacs"
   terminal_command_arguments.push("-nw")
 when "vim"
   package "macvim" do
-    options "--override-system-vim"
     action :install
   end
 
