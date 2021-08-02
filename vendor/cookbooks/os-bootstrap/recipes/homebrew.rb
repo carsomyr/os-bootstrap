@@ -47,7 +47,7 @@ end)
     # checks whether *some* version of the cask exists. Doing enables the resource `update` action in conjunction with
     # the `brew update && brew upgrade brew-cask` workflow.
     new_resource.can_update(
-        shell_out((prefix + "bin/brew").to_s, "cask", "list", "--", new_resource.name).exitstatus != 0
+        shell_out((prefix + "bin/brew").to_s, "list", "--cask", "--", new_resource.name).exitstatus != 0
     )
   end
 
@@ -56,7 +56,7 @@ end)
     ancestor.action :update do
       if new_resource.can_update
         execute "updating cask #{new_resource.name}" do
-          command [(prefix + "bin/brew").to_s, "cask", "install", "--", new_resource.name]
+          command [(prefix + "bin/brew").to_s, "install", "--cask", "--", new_resource.name]
           user Homebrew.owner
         end
       end
