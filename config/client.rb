@@ -33,3 +33,6 @@ automatic_attribute_whitelist   []
 default_attribute_whitelist     []
 normal_attribute_whitelist      []
 override_attribute_whitelist    []
+
+# Use the minimal set of Ohai plugins.
+minimal_ohai                    true
