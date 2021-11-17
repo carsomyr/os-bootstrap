@@ -158,6 +158,16 @@ plist_file "com.apple.dock" do
   # Enable or disable Spaces.
   set "workspaces", prefs["dock"]["enable_workspaces"]
 
+  # Disable all hot corners.
+  set "wvous-bl-corner", prefs["dock"]["wvous-bl-corner"]
+  set "wvous-bl-modifier", prefs["dock"]["wvous-bl-modifier"]
+  set "wvous-br-corner", prefs["dock"]["wvous-br-corner"]
+  set "wvous-br-modifier", prefs["dock"]["wvous-br-modifier"]
+  set "wvous-tl-corner", prefs["dock"]["wvous-tl-corner"]
+  set "wvous-tl-modifier", prefs["dock"]["wvous-tl-modifier"]
+  set "wvous-tr-corner", prefs["dock"]["wvous-tr-corner"]
+  set "wvous-tr-modifier", prefs["dock"]["wvous-tr-modifier"]
+
   # We need to restart `Dock` for the changes to take effect.
   notifies :run, "execute[`killall -- Dock`]", :immediately
 
