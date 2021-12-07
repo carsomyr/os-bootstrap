@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # -*- coding: utf-8 -*-
 #
-# Copyright 2014-2020 Roy Liu
+# Copyright 2014-2021 Roy Liu
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
 # use this file except in compliance with the License. You may obtain a copy of
@@ -850,7 +850,7 @@ case "$1" in
         fi
 
         exec -- #{Shellwords.escape(rbenv_executable.to_s)} exec ruby \\
-            -e "$(curl -fsSL -- "https://raw.githubusercontent.com/carsomyr/os-bootstrap/install/run")" \\
+            -e "$(curl -fsSL -- "https://raw.githubusercontent.com/carsomyr/os-bootstrap/install/run.rb")" \\
             -- "$@"
         ;;
 
