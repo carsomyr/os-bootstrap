@@ -1,7 +1,8 @@
 SITE
   remote: https://supermarket.getchef.com/api/v1
   specs:
-    homebrew (5.1.0)
+    homebrew (5.2.2)
+    sudo (5.4.6)
 
 GIT
   remote: https://github.com/carsomyr/chef-plist
@@ -25,9 +26,11 @@ PATH
       homebrew (>= 0.0.0)
       plist (>= 0.0.0)
       ruby_rbenv (>= 0.0.0)
+      sudo (>= 0.0.0)
 
 DEPENDENCIES
   os-bootstrap (>= 0)
   plist (>= 0)
   ruby_rbenv (>= 0)
+  sudo (< 5.4.7)
 

@@ -23,3 +23,5 @@ cookbook "plist",
          path: "vendor/cookbooks/plist"
 cookbook "ruby_rbenv",
          github: "chef-rbenv/ruby_rbenv"
+# There seems to be a problem with version 5.4.7.
+cookbook "sudo", "< 5.4.7"

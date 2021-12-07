@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-#
+# frozen_string_literal: true
+
 # Copyright 2014 Roy Liu
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -15,6 +15,9 @@
 # the License.
 
 require "pathname"
+
+# We need modifications to the `/etc/sudoers` file so that Homebrew installation doesn't blow up.
+include_recipe "sudo"
 
 class << self
   include Os::Bootstrap
@@ -32,9 +35,9 @@ homebrew_cask_resource = ::Chef::ResourceResolver.new(node, "homebrew_cask").res
 
   def can_update(arg = nil)
     set_or_return(
-        :can_update,
-        arg,
-        kind_of: [TrueClass, FalseClass]
+      :can_update,
+      arg,
+      kind_of: [TrueClass, FalseClass]
     )
   end
 end)
@@ -47,7 +50,7 @@ end)
     # checks whether *some* version of the cask exists. Doing enables the resource `update` action in conjunction with
     # the `brew update && brew upgrade brew-cask` workflow.
     new_resource.can_update(
-        shell_out((prefix + "bin/brew").to_s, "list", "--cask", "--", new_resource.name).exitstatus != 0
+      shell_out(prefix.join("bin/brew").to_s, "list", "--cask", "--", new_resource.name).exitstatus != 0
     )
   end
 
@@ -56,7 +59,7 @@ end)
     ancestor.action :update do
       if new_resource.can_update
         execute "updating cask #{new_resource.name}" do
-          command [(prefix + "bin/brew").to_s, "install", "--cask", "--", new_resource.name]
+          command [prefix.join("bin/brew").to_s, "install", "--cask", "--", new_resource.name]
           user Homebrew.owner
         end
       end
@@ -65,23 +68,23 @@ end)
 end)
 
 homebrew_paths = [
-    "/usr/local/bin", "/usr/local/sbin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"
+  "/usr/local/bin", "/usr/local/sbin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"
 ]
 
 homebrew_install_dirs = [
-    "bin", "etc", "include", "lib", "lib/pkgconfig", "sbin", "share", "var", "opt",
-    "var/log", "var/homebrew", "var/homebrew/linked", "share/locale", "share/man",
-    "share/man/man1", "share/man/man2", "share/man/man3", "share/man/man4",
-    "share/man/man5", "share/man/man6", "share/man/man7", "share/man/man8",
-    "share/info", "share/doc", "share/aclocal",
-    "Caskroom", "Cellar", "Frameworks", "Homebrew", "Homebrew/Library", "Homebrew/Library/Taps"
-].map {|dir_name| Pathname.new("/usr/local") + dir_name}
+  "bin", "etc", "include", "lib", "lib/pkgconfig", "sbin", "share", "var", "opt",
+  "var/log", "var/homebrew", "var/homebrew/linked", "share/locale", "share/man",
+  "share/man/man1", "share/man/man2", "share/man/man3", "share/man/man4",
+  "share/man/man5", "share/man/man6", "share/man/man7", "share/man/man8",
+  "share/info", "share/doc", "share/aclocal",
+  "Caskroom", "Cellar", "Frameworks", "Homebrew", "Homebrew/Library", "Homebrew/Library/Taps"
+].map { |dir_name| Pathname.new("/usr/local") + dir_name }
 
 zsh_install_dirs = [
-    "share/zsh", "share/zsh/site-functions"
-].map {|dir_name| Pathname.new("/usr/local") + dir_name}
+  "share/zsh", "share/zsh/site-functions"
+].map { |dir_name| Pathname.new("/usr/local") + dir_name }
 
-homebrew_cache_dir = owner_dir + "Library/Caches/Homebrew"
+homebrew_cache_dir = owner_dir.join("Library/Caches/Homebrew")
 homebrew_old_cache_dir = Pathname.new("/Library/Caches/Homebrew")
 
 # Rearrange the `PATH` environment variable so that Homebrew's directories are searched first.
@@ -109,10 +112,10 @@ ruby_block "rearrange `ENV[\"PATH\"]`" do
 end
 
 file "/etc/paths" do
-  content homebrew_paths.join("\n") + "\n"
+  content "#{homebrew_paths.join("\n")}\n"
   owner "root"
   group "wheel"
-  mode 0644
+  mode 0o644
   action :create
 end
 
@@ -125,7 +128,7 @@ homebrew_install_dirs.each do |dir|
   directory dir.to_s do
     owner "root"
     group "admin"
-    mode 0775
+    mode 0o775
     action :create
   end
 end
@@ -134,7 +137,7 @@ zsh_install_dirs.each do |dir|
   directory dir.to_s do
     owner recipe.owner
     group "admin"
-    mode 0755
+    mode 0o755
     action :create
   end
 end
@@ -142,10 +145,10 @@ end
 directory homebrew_cache_dir.to_s do
   owner recipe.owner
   group "admin"
-  mode 0775
+  mode 0o775
 
   # Create the old cache directory, but only once and tied to the creation of this one.
-  notifies :create, "directory[#{homebrew_old_cache_dir.to_s}]", :immediately
+  notifies :create, "directory[#{homebrew_old_cache_dir}]", :immediately
 
   action :create
 end
@@ -153,7 +156,7 @@ end
 directory homebrew_old_cache_dir.to_s do
   owner recipe.owner
   group "admin"
-  mode 0775
+  mode 0o775
   action :nothing
 end
 
