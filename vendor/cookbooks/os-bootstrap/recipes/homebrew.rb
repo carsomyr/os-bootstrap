@@ -25,6 +25,7 @@ class << self
 end
 
 recipe = self
+script_file = owner_dir.join(".profile.d/1000_homebrew.sh")
 
 cask_resource_class = ::Chef::ResourceResolver.new(node, "homebrew_cask").resolve.send(:prepend, Module.new do
   def initialize(name, run_context = nil)
@@ -125,4 +126,22 @@ if node["homebrew"]["auto-update"]
     environment lazy { {"HOME" => ::Dir.home(recipe.owner), "USER" => recipe.owner} }
     user recipe.owner
   end
+end
+
+directory "create `.profile.d` for #{recipe_full_name}" do
+  path recipe.owner_dir.join(".profile.d").to_s
+  owner recipe.owner
+  group recipe.owner_group
+  mode 0o755
+  action :create
+end
+
+# Install the Bash hook.
+template script_file.to_s do
+  source "bash-1000_homebrew.sh.erb"
+  owner recipe.owner
+  group recipe.owner_group
+  helper(:homebrew_bin_dir) { recipe.homebrew_bin_dir }
+  mode 0o644
+  action :create
 end
