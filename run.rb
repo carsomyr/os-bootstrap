@@ -1,6 +1,5 @@
 #!/usr/bin/env ruby
-# -*- coding: utf-8 -*-
-#
+
 # Copyright 2014-2021 Roy Liu
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -66,10 +65,10 @@ module Os
               # force the issue.
               line.split(single_space_pattern, -1).each do |word|
                 if line_acc
-                  if !first_word
-                    sep = " "
+                  sep = if !first_word
+                    " "
                   else
-                    sep = ""
+                    ""
                   end
 
                   if @line_max && line_acc.size + sep.size + word.size > @line_max
@@ -151,7 +150,7 @@ module Os
       # Emits a single line of output.
       def emit_line(word)
         if @line_max
-          @line_header + word + " " * (@line_max - word.size) + @line_footer + "\n"
+          @line_header + word + (" " * (@line_max - word.size)) + @line_footer + "\n"
         else
           @line_header + word + "\n"
         end
@@ -175,7 +174,7 @@ module Os
             exit!(0)
           end)
 
-          raise RuntimeError, "Child process exited with nonzero status" \
+          raise "Child process exited with nonzero status" \
             if exit_status != 0
         end
 
@@ -187,7 +186,8 @@ module Os
 
             target, deps = target_deps.each_pair.first
           else
-            target, deps = target_deps, []
+            target = target_deps
+            deps = []
           end
 
           deps = [deps] \
@@ -208,10 +208,10 @@ module Os
 
           parent_task = recursive_writeable_directories target.parent => deps
 
-          if parent_task
-            task_deps = deps + [parent_task]
+          task_deps = if parent_task
+            deps + [parent_task]
           else
-            task_deps = deps
+            deps
           end
 
           directory target.to_s => task_deps do
@@ -219,7 +219,7 @@ module Os
               mkdir target
 
               # Set group writeability and ownership to the `admin` group, which the user is presumed to be a member of.
-              chmod 0775, target
+              chmod 0o775, target
               chown nil, "admin", target
             end
           end
@@ -237,7 +237,7 @@ module Os
             mkdir directory
 
             # Set group writeability and ownership to the `admin` group, which the user is presumed to be a member of.
-            chmod 0775, directory
+            chmod 0o775, directory
             chown nil, "admin", directory
           end
 
@@ -250,10 +250,10 @@ module Os
 
           parent_task = recursive_writeable_directories target.parent => deps
 
-          if parent_task
-            task_deps = deps + [parent_task]
+          task_deps = if parent_task
+            deps + [parent_task]
           else
-            task_deps = deps
+            deps
           end
 
           file target => task_deps, &block
@@ -321,18 +321,21 @@ module Os
           # Set special values for certain rbenv environment variables, run the given block, and restore them
           # afterwards.
           ENV["RBENV_ROOT"], ENV["RBENV_DIR"], ENV["RBENV_HOOK_PATH"], ENV["RBENV_VERSION"] =
-              [ENV["RBENV_ROOT"], ENV["RBENV_DIR"], ENV["RBENV_HOOK_PATH"], ENV["RBENV_VERSION"]].tap do
-                ENV["RBENV_ROOT"], ENV["RBENV_DIR"], ENV["RBENV_HOOK_PATH"], ENV["RBENV_VERSION"] =
-                    [rbenv_root.to_s, nil, nil, nil]
-                block.call((rbenv_root + "bin/rbenv").to_s)
-              end
+            [ENV["RBENV_ROOT"], ENV["RBENV_DIR"], ENV["RBENV_HOOK_PATH"], ENV["RBENV_VERSION"]].tap do
+              ENV["RBENV_ROOT"] = rbenv_root.to_s
+              ENV["RBENV_DIR"] = nil
+              ENV["RBENV_HOOK_PATH"] = nil
+              ENV["RBENV_VERSION"] = nil
+              block.call((rbenv_root + "bin/rbenv").to_s)
+            end
         end
 
         # Sets up a special environment for Git's SSH protocol.
         def git_ssh(git_ssh_executable, &block)
           # Set environment variables that direct Git to use the provided SSH wrapper, and restore them afterwards.
           ENV["SSH_AUTH_SOCK"], ENV["GIT_SSH"] = [ENV["SSH_AUTH_SOCK"], ENV["GIT_SSH"]].tap do
-            ENV["SSH_AUTH_SOCK"], ENV["GIT_SSH"] = [nil, git_ssh_executable.to_s]
+            ENV["SSH_AUTH_SOCK"] = nil
+            ENV["GIT_SSH"] = git_ssh_executable.to_s
             block.call
           end
         end
@@ -400,7 +403,7 @@ module Os
       attr_reader :define_rake_tasks
     end
 
-    @define_rake_tasks = Proc.new do |opts, user_opts|
+    @define_rake_tasks = proc do |opts, user_opts|
       prefix = opts[:prefix]
       ssh_key_file = opts[:ssh_key_file]
       chef_attribute_path = opts[:chef_attribute_path]
@@ -419,7 +422,7 @@ module Os
         installed_rbenv = receipts_dir + "installed-rbenv"
         git_ssh_executable = user_data_dir + "bin/git-ssh"
         chef_config_file = repo_dir + "config/client.rb"
-        installed_user = receipts_dir + "installed-user-#{repo_dir.basename.to_s}"
+        installed_user = receipts_dir + "installed-user-#{repo_dir.basename}"
 
         file installed_receipts_dir do
           create_recursive_writeable_directories(receipts_dir)
@@ -433,12 +436,12 @@ module Os
 
             if installed_key_file != ssh_key_file
               file_with_parent_directories installed_key_file => ssh_key_file do
-                pp(:info, "Write the SSH private key file to #{installed_key_file.to_s}")
+                pp(:info, "Write the SSH private key file to #{installed_key_file}")
 
                 as_user do
                   # Copy the private key file and secure the copy.
                   cp ssh_key_file, installed_key_file
-                  chmod 0600, installed_key_file
+                  chmod 0o600, installed_key_file
 
                   # Convert OpenSSH private keys to RSA format (see `https://github.com/net-ssh/net-ssh/issues/633`).
                   sh "ssh-keygen", "-p", "-N", "", "-m", "pem", "-f", installed_key_file.to_s
@@ -471,7 +474,7 @@ set -e
 
 exec -- #{ssh_command} "$@"
 EOS
-                )
+                       )
               end
 
               # Assign executable bits.
@@ -490,7 +493,7 @@ EOS
           end
 
           file_with_parent_directories installed_command_line_tools => [
-              clt_bom_file, installed_receipts_dir
+            clt_bom_file, installed_receipts_dir
           ] do
             as_user do
               touch installed_command_line_tools
@@ -513,7 +516,7 @@ EOS
 
           desc "Clones the rbenv repository into #{rbenv_dir.to_s.dump}"
           file_with_parent_directories installed_rbenv_repo => [
-              installed_command_line_tools, installed_rbenv_repo_dir
+            installed_command_line_tools, installed_rbenv_repo_dir
           ] do
             pp(:info, "Clone the rbenv repository")
 
@@ -523,8 +526,8 @@ EOS
 
                 sh "git", "remote", "add", "-f", "-m", "master", "--", "origin",
                    "https://github.com/rbenv/rbenv" do
-                  # Swallow a nonzero exit status.
-                end
+                     # Swallow a nonzero exit status.
+                   end
 
                 sh "git", "checkout", "master"
               end
@@ -534,7 +537,9 @@ EOS
           end
 
           desc "Clones the ruby-build repository into #{ruby_build_dir.to_s.dump}"
-          file_with_parent_directories installed_ruby_build_repo => [installed_command_line_tools, installed_rbenv_repo] do
+          file_with_parent_directories installed_ruby_build_repo => [
+            installed_command_line_tools, installed_rbenv_repo
+          ] do
             pp(:info, "Clone the ruby-build repository")
 
             as_user do
@@ -545,8 +550,8 @@ EOS
 
                 sh "git", "remote", "add", "-f", "-m", "master", "--", "origin",
                    "https://github.com/rbenv/ruby-build" do
-                  # Swallow a nonzero exit status.
-                end
+                     # Swallow a nonzero exit status.
+                   end
 
                 sh "git", "checkout", "master"
               end
@@ -588,8 +593,8 @@ EOS
         namespace :chef do
           installed_attribute_json_file = user_data_dir + "chef/attributes.json"
           installed_attribute_yaml_file = user_data_dir + "chef/attributes.yml"
-          installed_user_repo_dir = receipts_dir + "installed-user-repo-dir-#{repo_dir.basename.to_s}"
-          installed_user_repo = receipts_dir + "installed-user-repo-#{repo_dir.basename.to_s}"
+          installed_user_repo_dir = receipts_dir + "installed-user-repo-dir-#{repo_dir.basename}"
+          installed_user_repo = receipts_dir + "installed-user-repo-#{repo_dir.basename}"
           cheffile_lock = repo_dir + "Cheffile.lock"
           chef_client_executable = rbenv_dir + "versions/#{rbenv_version}/bin/chef-client"
           librarian_chef_executable = rbenv_dir + "versions/#{rbenv_version}/bin/librarian-chef"
@@ -600,7 +605,7 @@ EOS
             deps.each { |dep| file dep }
 
             file_with_parent_directories installed_attribute_json_file => deps do
-              pp(:info, "Write the JSONified Chef attribute file to #{installed_attribute_json_file.to_s}")
+              pp(:info, "Write the JSONified Chef attribute file to #{installed_attribute_json_file}")
 
               as_user do
                 installed_attribute_json_file.open("wb") { |f| f.write(JSON.generate(attributes)) }
@@ -609,7 +614,7 @@ EOS
 
             if !deps.find { |dep| dep == installed_attribute_yaml_file }
               file_with_parent_directories installed_attribute_yaml_file => deps do
-                pp(:info, "Write the YAMLized Chef attribute file to #{installed_attribute_yaml_file.to_s}")
+                pp(:info, "Write the YAMLized Chef attribute file to #{installed_attribute_yaml_file}")
 
                 as_user do
                   installed_attribute_yaml_file.open("wb") { |f| f.write(YAML.dump(attributes)) }
@@ -630,7 +635,7 @@ EOS
 
           desc "Clones the user's Chef repository into #{repo_dir.to_s.dump}"
           file_with_parent_directories installed_user_repo => [
-              installed_command_line_tools, git_ssh_executable, installed_user_repo_dir
+            installed_command_line_tools, git_ssh_executable, installed_user_repo_dir
           ] do
             pp(:info, "Clone the Chef repository at #{repo_url} (#{repo_branch})")
 
@@ -667,7 +672,7 @@ EOS
 
           desc "Runs `librarian-chef install` in the Chef repository"
           file_with_parent_directories installed_user => [
-              installed_user_repo, chef_client_executable, librarian_chef_executable
+            installed_user_repo, chef_client_executable, librarian_chef_executable
           ] + installed_attribute_deps do
             pp(:info, "Run `librarian-chef install` in the Chef repository")
 
@@ -687,7 +692,7 @@ EOS
 
         desc "Writes an executable to #{os_bootstrap_executable.to_s.dump}"
         file_with_parent_directories os_bootstrap_executable => [
-            installed_rbenv, installed_command_line_tools, installed_user, git_ssh_executable
+          installed_rbenv, installed_command_line_tools, installed_user, git_ssh_executable
         ] do
           rbenv_executable = rbenv_dir + "bin/rbenv"
 
@@ -805,7 +810,7 @@ case "$1" in
         ;;
 esac
 EOS
-              )
+                     )
             end
 
             # Assign executable bits.
@@ -845,15 +850,15 @@ end
 
 if __FILE__ == $0
   opts = {
-      prefix: Pathname.new("/usr/local"),
-      config_dir: Pathname.new("/Volumes/User Data"),
-      rbenv_dir: Pathname.new("/usr/local/var/rbenv"),
-      rbenv_version: "2.7.2",
-      repo_url: "https://github.com/carsomyr/os-bootstrap",
-      repo_branch: "main",
-      ssh_key_file: nil,
-      chef_attribute_path: nil,
-      verbose: false
+    prefix: Pathname.new("/usr/local"),
+    config_dir: Pathname.new("/Volumes/User Data"),
+    rbenv_dir: Pathname.new("/usr/local/var/rbenv"),
+    rbenv_version: "2.7.2",
+    repo_url: "https://github.com/carsomyr/os-bootstrap",
+    repo_branch: "main",
+    ssh_key_file: nil,
+    chef_attribute_path: nil,
+    verbose: false
   }
 
   user_opts = {}
@@ -889,9 +894,9 @@ if __FILE__ == $0
     end
 
     opt_spec.on("-c", "--chef-attribute-path CHEF_ATTRIBUTE_PATH", "provide a `chef-client` attribute file in YAML or" \
-                " as a directory hierarchy of files") do |chef_attribute_path|
-      user_opts[:chef_attribute_path] = Pathname.new(chef_attribute_path)
-    end
+      " as a directory hierarchy of files") do |chef_attribute_path|
+        user_opts[:chef_attribute_path] = Pathname.new(chef_attribute_path)
+      end
 
     opt_spec.on("-y", "--yes", "a non-interactive \"yes\" answer to all prompts") do
       user_opts[:yes_to_all] = true
@@ -930,13 +935,13 @@ if __FILE__ == $0
 
   # Set the pretty print formatters.
   Rake.application.formatters = {
-      xml_heading: Os::Bootstrap::Formatter.new(
-          "#{tty_blue}*#{"-" * 118}*#{tty_reset}",
-          "#{tty_blue}*#{"-" * 118}*#{tty_reset}",
-          "#{tty_blue}|#{tty_reset} ", " #{tty_blue}|#{tty_reset}", 116
-      ),
+    xml_heading: Os::Bootstrap::Formatter.new(
+      "#{tty_blue}*#{"-" * 118}*#{tty_reset}",
+      "#{tty_blue}*#{"-" * 118}*#{tty_reset}",
+      "#{tty_blue}|#{tty_reset} ", " #{tty_blue}|#{tty_reset}", 116
+    ),
       info: Os::Bootstrap::Formatter.new(
-          "", "", " #{tty_green}=>#{tty_reset} "
+        "", "", " #{tty_green}=>#{tty_reset} "
       )
   }
 
@@ -956,7 +961,7 @@ if __FILE__ == $0
     if !config_dir.directory? && existing_install_dir.directory?
 
   if !ssh_key_file
-    ssh_key_file = Pathname.glob("#{config_dir.to_s}/ssh/id_{rsa,dsa,ecdsa}").first
+    ssh_key_file = Pathname.glob("#{config_dir}/ssh/id_{rsa,dsa,ecdsa}").first
     opts[:ssh_key_file] = ssh_key_file
   end
 
@@ -1023,7 +1028,7 @@ EOS
         pp(:info, "Installation not attempted.")
       else
         pp(:info, "Installation not attempted. If you are running this script non-interactively, consider providing" \
-                  " the `-y` flag option.")
+          " the `-y` flag option.")
       end
 
       exit 1
