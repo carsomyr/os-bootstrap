@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# frozen_string_literal: true
 
 # Copyright 2014-2021 Roy Liu
 #
@@ -42,7 +43,7 @@ module Os
       def format(str)
         acc = ""
 
-        acc = @header + "\n" \
+        acc = "#{@header}\n" \
           if @header
 
         single_space_pattern = Regexp.new(" ")
@@ -85,7 +86,7 @@ module Os
 
                 # Trim the word down to size.
                 while @line_max && word.size > @line_max
-                  acc += emit_line(word[0...(@line_max - 1)] + "-")
+                  acc += emit_line("#{word[0...(@line_max - 1)]}-")
                   word = word[(@line_max - 1)...(word.size)]
                 end
 
@@ -121,7 +122,7 @@ module Os
 
                 # Trim the line down to size.
                 while @line_max && line.size > @line_max
-                  acc += emit_line(line[0...(@line_max - 1)] + "-")
+                  acc += emit_line("#{line[0...(@line_max - 1)]}-")
                   line = line[(@line_max - 1)...(line.size)]
                 end
 
@@ -139,7 +140,7 @@ module Os
         acc += emit_line(line_acc) \
           if line_acc
 
-        acc += @footer + "\n" \
+        acc += "#{@footer}\n" \
           if @footer
 
         acc
@@ -150,9 +151,9 @@ module Os
       # Emits a single line of output.
       def emit_line(word)
         if @line_max
-          @line_header + word + (" " * (@line_max - word.size)) + @line_footer + "\n"
+          "#{@line_header}#{word}#{" " * (@line_max - word.size)}#{@line_footer}\n"
         else
-          @line_header + word + "\n"
+          "#{@line_header}#{word}\n"
         end
       end
     end
@@ -272,7 +273,7 @@ module Os
           label_pattern = Regexp.new("\\A\\* Label: (?<identifier>Command Line Tools.*)-(?<display_version>.+)\\z")
 
           begin
-            identifier, display_version = IO.popen(["softwareupdate", "-l"]) { |io| io.read }.
+            identifier, display_version = IO.popen(["softwareupdate", "-l"], &:read).
               split("\n").
               map do |line|
                 if m = label_pattern.match(line)
@@ -282,10 +283,9 @@ module Os
                 end
               end.
               select { |tuple| tuple }.
-              sort do |(_, l_version), (_, r_version)|
+              min do |(_, l_version), (_, r_version)|
                 -(l_version <=> r_version)
-              end.
-              first
+              end
 
             if !identifier
               raise "Could not find the necessary metadata for installing the command-line tools package"
@@ -326,7 +326,7 @@ module Os
               ENV["RBENV_DIR"] = nil
               ENV["RBENV_HOOK_PATH"] = nil
               ENV["RBENV_VERSION"] = nil
-              block.call((rbenv_root + "bin/rbenv").to_s)
+              block.call(rbenv_root.join("bin/rbenv").to_s)
             end
         end
 
@@ -373,7 +373,7 @@ module Os
               attribute_files += child_attribute_files
             end
           elsif path.file? && path.extname == ".yml"
-            attributes = YAML.load(path.open("rb") { |f| f.read }) || {}
+            attributes = YAML.safe_load(path.open("rb", &:read)) || {}
             attribute_files.push(path)
           end
 
@@ -412,17 +412,17 @@ module Os
       repo_url = opts[:repo_url]
       repo_branch = opts[:repo_branch]
       repo_dir = opts[:repo_dir]
-      os_bootstrap_executable = prefix + "bin/os-bootstrap"
+      os_bootstrap_executable = prefix.join("bin/os-bootstrap")
 
       namespace :os_bootstrap do
-        user_data_dir = prefix + "var/user_data"
-        receipts_dir = user_data_dir + "receipts"
-        installed_receipts_dir = receipts_dir + "installed-receipts-dir"
-        installed_command_line_tools = receipts_dir + "installed-command-line-tools"
-        installed_rbenv = receipts_dir + "installed-rbenv"
-        git_ssh_executable = user_data_dir + "bin/git-ssh"
-        chef_config_file = repo_dir + "config/client.rb"
-        installed_user = receipts_dir + "installed-user-#{repo_dir.basename}"
+        user_data_dir = prefix.join("var/user_data")
+        receipts_dir = user_data_dir.join("receipts")
+        installed_receipts_dir = receipts_dir.join("installed-receipts-dir")
+        installed_command_line_tools = receipts_dir.join("installed-command-line-tools")
+        installed_rbenv = receipts_dir.join("installed-rbenv")
+        git_ssh_executable = user_data_dir.join("bin/git-ssh")
+        chef_config_file = repo_dir.join("config/client.rb")
+        installed_user = receipts_dir.join("installed-user-#{repo_dir.basename}")
 
         file installed_receipts_dir do
           create_recursive_writeable_directories(receipts_dir)
@@ -432,7 +432,7 @@ module Os
 
         namespace :ssh do
           if ssh_key_file
-            installed_key_file = user_data_dir + "ssh" + ssh_key_file.basename
+            installed_key_file = user_data_dir.join("ssh", ssh_key_file.basename)
 
             if installed_key_file != ssh_key_file
               file_with_parent_directories installed_key_file => ssh_key_file do
@@ -502,11 +502,11 @@ EOS
         end
 
         namespace :rbenv do
-          ruby_build_dir = rbenv_dir + "plugins/ruby-build"
-          ruby_build_definition = ruby_build_dir + "share/ruby-build/#{rbenv_version}"
-          installed_rbenv_repo_dir = receipts_dir + "installed-rbenv-repo-dir"
-          installed_rbenv_repo = receipts_dir + "installed-rbenv-repo"
-          installed_ruby_build_repo = receipts_dir + "installed-ruby-build-repo"
+          ruby_build_dir = rbenv_dir.join("plugins/ruby-build")
+          ruby_build_definition = ruby_build_dir.join("share/ruby-build/#{rbenv_version}")
+          installed_rbenv_repo_dir = receipts_dir.join("installed-rbenv-repo-dir")
+          installed_rbenv_repo = receipts_dir.join("installed-rbenv-repo")
+          installed_ruby_build_repo = receipts_dir.join("installed-ruby-build-repo")
 
           file installed_rbenv_repo_dir do
             create_recursive_writeable_directories(rbenv_dir)
@@ -583,7 +583,7 @@ EOS
               end
 
               # Set the default rbenv Ruby version.
-              (rbenv_dir + "version").open("wb") { |f| f.write("#{rbenv_version}\n") }
+              rbenv_dir.join("version").open("wb") { |f| f.write("#{rbenv_version}\n") }
 
               touch installed_rbenv
             end
@@ -591,13 +591,13 @@ EOS
         end
 
         namespace :chef do
-          installed_attribute_json_file = user_data_dir + "chef/attributes.json"
-          installed_attribute_yaml_file = user_data_dir + "chef/attributes.yml"
-          installed_user_repo_dir = receipts_dir + "installed-user-repo-dir-#{repo_dir.basename}"
-          installed_user_repo = receipts_dir + "installed-user-repo-#{repo_dir.basename}"
-          cheffile_lock = repo_dir + "Cheffile.lock"
-          chef_client_executable = rbenv_dir + "versions/#{rbenv_version}/bin/chef-client"
-          librarian_chef_executable = rbenv_dir + "versions/#{rbenv_version}/bin/librarian-chef"
+          installed_attribute_json_file = user_data_dir.join("chef/attributes.json")
+          installed_attribute_yaml_file = user_data_dir.join("chef/attributes.yml")
+          installed_user_repo_dir = receipts_dir.join("installed-user-repo-dir-#{repo_dir.basename}")
+          installed_user_repo = receipts_dir.join("installed-user-repo-#{repo_dir.basename}")
+          cheffile_lock = repo_dir.join("Cheffile.lock")
+          chef_client_executable = rbenv_dir.join("versions/#{rbenv_version}/bin/chef-client")
+          librarian_chef_executable = rbenv_dir.join("versions/#{rbenv_version}/bin/librarian-chef")
 
           if chef_attribute_path
             attributes, deps = attributes_from_path(chef_attribute_path)
@@ -694,12 +694,12 @@ EOS
         file_with_parent_directories os_bootstrap_executable => [
           installed_rbenv, installed_command_line_tools, installed_user, git_ssh_executable
         ] do
-          rbenv_executable = rbenv_dir + "bin/rbenv"
+          rbenv_executable = rbenv_dir.join("bin/rbenv")
 
           lines = []
           lines.push(["chef-client", "-z"])
           lines.push(["-c", chef_config_file.to_s])
-          lines.push(["-j", (user_data_dir + "chef/attributes.json").to_s]) \
+          lines.push(["-j", user_data_dir.join("chef/attributes.json").to_s]) \
             if chef_attribute_path
 
           sudo_user_command = "sudo -E -u #{Shellwords.escape(ENV["SUDO_USER"])}"
@@ -757,8 +757,8 @@ export -- RBENV_ROOT=#{Shellwords.escape(rbenv_dir.to_s)}
 
 # Take no chances and regenerate the `PATH` environment variable.
 eval -- "$(PATH="" /usr/libexec/path_helper)"
-PATH=#{Shellwords.escape((rbenv_dir + "bin").to_s)}"${PATH:+":${PATH}"}"
-PATH=#{Shellwords.escape((rbenv_dir + "shims").to_s)}"${PATH:+":${PATH}"}"
+PATH=#{Shellwords.escape(rbenv_dir.join("bin").to_s)}"${PATH:+":${PATH}"}"
+PATH=#{Shellwords.escape(rbenv_dir.join("shims").to_s)}"${PATH:+":${PATH}"}"
 
 # Ensure that SSH authentication works off of the given private key *only*.
 unset -- SSH_AUTH_SOCK
@@ -848,7 +848,7 @@ EOS
   end
 end
 
-if __FILE__ == $0
+if __FILE__ == $PROGRAM_NAME
   opts = {
     prefix: Pathname.new("/usr/local"),
     config_dir: Pathname.new("/Volumes/User Data"),
@@ -923,7 +923,7 @@ if __FILE__ == $0
     include Os::Bootstrap::RakeHelpers
   end
 
-  if STDOUT.tty?
+  if $stdout.tty?
     tty_blue = "\033[34m"
     tty_green = "\033[32m"
     tty_reset = "\033[0m"
@@ -955,7 +955,7 @@ if __FILE__ == $0
   repo_url = opts[:repo_url]
   repo_branch = opts[:repo_branch]
 
-  existing_install_dir = prefix + "var/user_data"
+  existing_install_dir = prefix.join("var/user_data")
 
   config_dir = existing_install_dir \
     if !config_dir.directory? && existing_install_dir.directory?
@@ -968,7 +968,7 @@ if __FILE__ == $0
   raise "No SSH private key file found at #{ssh_key_file.to_s.dump}" \
     if ssh_key_file && !ssh_key_file.file?
 
-  chef_attribute_dir = config_dir + "chef"
+  chef_attribute_dir = config_dir.join("chef")
 
   if !chef_attribute_path && chef_attribute_dir.directory?
     chef_attribute_path = chef_attribute_dir
@@ -984,7 +984,7 @@ if __FILE__ == $0
   raise "Invalid Git repository URL #{repo_url.dump}" \
     if !m
 
-  opts[:repo_dir] = prefix + "var/user_data/git/#{m[1]}-#{Digest::SHA1.hexdigest(repo_url)[0...7]}"
+  opts[:repo_dir] = prefix.join("var/user_data/git/#{m[1]}-#{Digest::SHA1.hexdigest(repo_url)[0...7]}")
 
   pp(:xml_heading, <<EOS
 Hello from the OS Bootstrap installer!
@@ -1019,12 +1019,12 @@ EOS
   if !yes_to_all
     print "\n #{tty_green}=>#{tty_reset} Do you wish to continue (y/n)? "
 
-    answer = STDIN.getc
+    answer = $stdin.getc
 
     print "\n"
 
     if answer != "y"
-      if STDIN.tty?
+      if $stdin.tty?
         pp(:info, "Installation not attempted.")
       else
         pp(:info, "Installation not attempted. If you are running this script non-interactively, consider providing" \
