@@ -1,6 +1,6 @@
-# -*- coding: utf-8 -*-
-#
-# Copyright 2014 Roy Liu
+# frozen_string_literal: true
+
+# Copyright 2014-2021 Roy Liu
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
 # use this file except in compliance with the License. You may obtain a copy of
@@ -20,48 +20,40 @@ require "socket"
 
 module ::Os
   module Bootstrap
-    module InstanceMethods
-      RECIPE_NAME_PATTERN = Regexp.new("\\A(?:.+?)::(?:.+)\\z")
+    RECIPE_NAME_PATTERN = Regexp.new("\\A(?:.+?)::(?:.+)\\z")
 
-      def owner
-        @owner ||= node["os-bootstrap"]["owner"] || ENV["SUDO_USER"] || Etc.getpwuid.name
-      end
-
-      def owner_group
-        @owner_group ||= Etc.getgrgid(Etc.getpwnam(owner).gid).name
-      end
-
-      def owner_dir
-        @owner_home ||= Pathname.new(Etc.getpwnam(owner).dir)
-      end
-
-      def user_full_name
-        @user_full_name ||= node["os-bootstrap"]["user"]["full_name"] \
-          || Etc.getpwnam(owner).gecos
-      end
-
-      def user_email
-        @user_email ||= node["os-bootstrap"]["user"]["email"] \
-          || "#{owner}@#{Socket.gethostname}"
-      end
-
-      def recipe_full_name
-        "#{cookbook_name}::#{recipe_name}"
-      end
-
-      def infer_recipe_name(recipe_name)
-        m = RECIPE_NAME_PATTERN.match(recipe_name)
-
-        if !m
-          "#{cookbook_name}::#{recipe_name}"
-        else
-          recipe_name
-        end
-      end
+    def owner
+      @owner ||= node["os-bootstrap"]["owner"] || ENV["SUDO_USER"] || Etc.getpwuid.name
     end
 
-    def self.included(clazz)
-      clazz.send(:include, InstanceMethods)
+    def owner_group
+      @owner_group ||= Etc.getgrgid(Etc.getpwnam(owner).gid).name
+    end
+
+    def owner_dir
+      @owner_dir ||= Pathname.new(Etc.getpwnam(owner).dir)
+    end
+
+    def user_full_name
+      @user_full_name ||= node["os-bootstrap"]["user"]["full_name"] || Etc.getpwnam(owner).gecos
+    end
+
+    def user_email
+      @user_email ||= node["os-bootstrap"]["user"]["email"] || "#{owner}@#{Socket.gethostname}"
+    end
+
+    def recipe_full_name
+      "#{cookbook_name}::#{recipe_name}"
+    end
+
+    def infer_recipe_name(recipe_name)
+      m = RECIPE_NAME_PATTERN.match(recipe_name)
+
+      if !m
+        "#{cookbook_name}::#{recipe_name}"
+      else
+        recipe_name
+      end
     end
   end
 end

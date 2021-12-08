@@ -21,21 +21,10 @@ include_recipe "sudo"
 
 class << self
   include Os::Bootstrap
+  include Os::Bootstrap::Homebrew
 end
 
 recipe = self
-
-is_apple_silicon = node["kernel"]["machine"] == "arm64"
-
-homebrew_prefix = Pathname.new(
-  if !is_apple_silicon
-    "/usr/local"
-  else
-    "/opt/homebrew"
-  end
-)
-
-homebrew_executable = homebrew_prefix.join("bin/brew")
 
 cask_resource_class = ::Chef::ResourceResolver.new(node, "homebrew_cask").resolve.send(:prepend, Module.new do
   def initialize(name, run_context = nil)
@@ -60,7 +49,7 @@ cask_resource_class.action_class.send(:prepend, Module.new do
     # Override the `brew` executable path, which might make the faulty assumption of `/usr/local/bin/brew`.
     new_resource.set_or_return(
       :homebrew_path,
-      homebrew_executable.to_s,
+      recipe.homebrew_executable.to_s,
       kind_of: String
     )
 
@@ -68,7 +57,7 @@ cask_resource_class.action_class.send(:prepend, Module.new do
     # checks whether *some* version of the cask exists. Doing enables the resource `update` action in conjunction with
     # the `brew update && brew upgrade brew-cask` workflow.
     new_resource.can_update(
-      shell_out(homebrew_executable.to_s, "list", "--cask", "--", new_resource.name).exitstatus != 0
+      shell_out(recipe.homebrew_executable.to_s, "list", "--cask", "--", new_resource.name).exitstatus != 0
     )
   end
 
@@ -77,7 +66,7 @@ cask_resource_class.action_class.send(:prepend, Module.new do
     ancestor.action :update do
       if new_resource.can_update
         execute "updating cask #{new_resource.name}" do
-          command [homebrew_executable.to_s, "install", "--cask", "--", new_resource.name]
+          command [recipe.homebrew_executable.to_s, "install", "--cask", "--", new_resource.name]
           user recipe.owner
         end
       end
@@ -94,25 +83,18 @@ tap_resource_class.action_class.send(:prepend, Module.new do
     # Override the `brew` executable path, which might make the faulty assumption of `/usr/local/bin/brew`.
     new_resource.set_or_return(
       :homebrew_path,
-      homebrew_executable.to_s,
+      recipe.homebrew_executable.to_s,
       kind_of: String
     )
   end
 end)
 
-homebrew_paths = [
-  "/usr/local/bin", "/usr/local/sbin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"
-]
-
-if is_apple_silicon
-  homebrew_paths.unshift(homebrew_executable.parent.to_s)
-end
-
 # Rearrange the `PATH` environment variable so that Homebrew's directories are searched first.
 ruby_block "rearrange `ENV[\"PATH\"]`" do
   block do
     env_paths = ENV["PATH"].split(":", -1).uniq
-    ENV["PATH"] = (homebrew_paths + (env_paths - homebrew_paths)).join(":")
+    homebrew_path = recipe.homebrew_bin_dir.to_s
+    ENV["PATH"] = ([homebrew_path] + (env_paths - [homebrew_path])).join(":")
   end
 
   action :run
@@ -138,7 +120,7 @@ end
 
 if node["homebrew"]["auto-update"]
   execute "update homebrew from github" do
-    command [homebrew_executable.to_s, "update"]
+    command [recipe.homebrew_executable.to_s, "update"]
     returns [0, 1]
     environment lazy { {"HOME" => ::Dir.home(recipe.owner), "USER" => recipe.owner} }
     user recipe.owner
