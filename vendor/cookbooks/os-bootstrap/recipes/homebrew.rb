@@ -24,9 +24,20 @@ class << self
 end
 
 recipe = self
-prefix = Pathname.new(node["os-bootstrap"]["prefix"])
 
-homebrew_cask_resource = ::Chef::ResourceResolver.new(node, "homebrew_cask").resolve.send(:prepend, Module.new do
+is_apple_silicon = node["kernel"]["machine"] == "arm64"
+
+homebrew_prefix = Pathname.new(
+  if !is_apple_silicon
+    "/usr/local"
+  else
+    "/opt/homebrew"
+  end
+)
+
+homebrew_executable = homebrew_prefix.join("bin/brew")
+
+cask_resource_class = ::Chef::ResourceResolver.new(node, "homebrew_cask").resolve.send(:prepend, Module.new do
   def initialize(name, run_context = nil)
     super(name, run_context)
 
@@ -42,15 +53,22 @@ homebrew_cask_resource = ::Chef::ResourceResolver.new(node, "homebrew_cask").res
   end
 end)
 
-::Chef::ProviderResolver.new(node, homebrew_cask_resource.new("dummy"), nil).resolve.send(:prepend, Module.new do
+cask_resource_class.action_class.send(:prepend, Module.new do
   define_method(:load_current_resource) do
     super()
+
+    # Override the `brew` executable path, which might make the faulty assumption of `/usr/local/bin/brew`.
+    new_resource.set_or_return(
+      :homebrew_path,
+      homebrew_executable.to_s,
+      kind_of: String
+    )
 
     # Check whether the version as specified in the cask file exists. This is in distinction to the current code, which
     # checks whether *some* version of the cask exists. Doing enables the resource `update` action in conjunction with
     # the `brew update && brew upgrade brew-cask` workflow.
     new_resource.can_update(
-      shell_out(prefix.join("bin/brew").to_s, "list", "--cask", "--", new_resource.name).exitstatus != 0
+      shell_out(homebrew_executable.to_s, "list", "--cask", "--", new_resource.name).exitstatus != 0
     )
   end
 
@@ -59,11 +77,26 @@ end)
     ancestor.action :update do
       if new_resource.can_update
         execute "updating cask #{new_resource.name}" do
-          command [prefix.join("bin/brew").to_s, "install", "--cask", "--", new_resource.name]
-          user Homebrew.owner
+          command [homebrew_executable.to_s, "install", "--cask", "--", new_resource.name]
+          user recipe.owner
         end
       end
     end
+  end
+end)
+
+tap_resource_class = ::Chef::ResourceResolver.new(node, "homebrew_tap").resolve
+
+tap_resource_class.action_class.send(:prepend, Module.new do
+  define_method(:load_current_resource) do
+    super()
+
+    # Override the `brew` executable path, which might make the faulty assumption of `/usr/local/bin/brew`.
+    new_resource.set_or_return(
+      :homebrew_path,
+      homebrew_executable.to_s,
+      kind_of: String
+    )
   end
 end)
 
@@ -71,97 +104,43 @@ homebrew_paths = [
   "/usr/local/bin", "/usr/local/sbin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"
 ]
 
-homebrew_install_dirs = [
-  "bin", "etc", "include", "lib", "lib/pkgconfig", "sbin", "share", "var", "opt",
-  "var/log", "var/homebrew", "var/homebrew/linked", "share/locale", "share/man",
-  "share/man/man1", "share/man/man2", "share/man/man3", "share/man/man4",
-  "share/man/man5", "share/man/man6", "share/man/man7", "share/man/man8",
-  "share/info", "share/doc", "share/aclocal",
-  "Caskroom", "Cellar", "Frameworks", "Homebrew", "Homebrew/Library", "Homebrew/Library/Taps"
-].map { |dir_name| Pathname.new("/usr/local") + dir_name }
-
-zsh_install_dirs = [
-  "share/zsh", "share/zsh/site-functions"
-].map { |dir_name| Pathname.new("/usr/local") + dir_name }
-
-homebrew_cache_dir = owner_dir.join("Library/Caches/Homebrew")
-homebrew_old_cache_dir = Pathname.new("/Library/Caches/Homebrew")
+if is_apple_silicon
+  homebrew_paths.unshift(homebrew_executable.parent.to_s)
+end
 
 # Rearrange the `PATH` environment variable so that Homebrew's directories are searched first.
 ruby_block "rearrange `ENV[\"PATH\"]`" do
   block do
     env_paths = ENV["PATH"].split(":", -1).uniq
-    homebrew_env_paths = homebrew_paths & env_paths
-    homebrew_remaining_paths = homebrew_paths - env_paths
-
-    path_set = Set.new(homebrew_env_paths)
-    index = 0
-
-    ENV["PATH"] = (homebrew_remaining_paths + env_paths.map do |env_path|
-      if path_set.include?(env_path)
-        homebrew_path = homebrew_env_paths[index]
-        index += 1
-        homebrew_path
-      else
-        env_path
-      end
-    end).join(":")
+    ENV["PATH"] = (homebrew_paths + (env_paths - homebrew_paths)).join(":")
   end
 
   action :run
 end
 
-file "/etc/paths" do
-  content "#{homebrew_paths.join("\n")}\n"
-  owner "root"
-  group "wheel"
-  mode 0o644
-  action :create
-end
+# Code from the original `homebrew` cookbook changed to account for Apple silicon.
+if !homebrew_executable.executable?
+  homebrew_go = "#{Chef::Config[:file_cache_path]}/homebrew_go"
 
-# Create `admin` group-writable directories in advance to work around Chef's interaction with Homebrew's installation
-# script. When Chef shells out (see
-# `https://github.com/opscode-cookbooks/homebrew/blob/v1.7.2/recipes/default.rb#L34-37`), it does so with the original
-# process' group id, which may very well be 0. This then short circuits Homebrew's permission fixing logic
-# (see `https://github.com/Homebrew/homebrew/blob/8eefd4e/install#L135`) when running under `sudo`.
-homebrew_install_dirs.each do |dir|
-  directory dir.to_s do
-    owner "root"
-    group "admin"
-    mode 0o775
-    action :create
+  remote_file homebrew_go do
+    source node["homebrew"]["installer"]["url"]
+    checksum node["homebrew"]["installer"]["checksum"] if node["homebrew"]["installer"]["checksum"]
+    mode "0755"
+    retries 2
+  end
+
+  execute "install homebrew" do
+    command homebrew_go
+    environment lazy { {"HOME" => ::Dir.home(recipe.owner), "USER" => recipe.owner} }
+    user recipe.owner
   end
 end
 
-zsh_install_dirs.each do |dir|
-  directory dir.to_s do
-    owner recipe.owner
-    group "admin"
-    mode 0o755
-    action :create
+if node["homebrew"]["auto-update"]
+  execute "update homebrew from github" do
+    command [homebrew_executable.to_s, "update"]
+    returns [0, 1]
+    environment lazy { {"HOME" => ::Dir.home(recipe.owner), "USER" => recipe.owner} }
+    user recipe.owner
   end
 end
-
-directory homebrew_cache_dir.to_s do
-  owner recipe.owner
-  group "admin"
-  mode 0o775
-
-  # Create the old cache directory, but only once and tied to the creation of this one.
-  notifies :create, "directory[#{homebrew_old_cache_dir}]", :immediately
-
-  action :create
-end
-
-directory homebrew_old_cache_dir.to_s do
-  owner recipe.owner
-  group "admin"
-  mode 0o775
-  action :nothing
-end
-
-# Install Homebrew.
-include_recipe "homebrew"
-
-# Enable `brew cask` functionality.
-include_recipe "homebrew::cask"
