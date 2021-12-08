@@ -12,6 +12,14 @@ if [[ -n "$_bashrc" ]] || [[ -z "$PS1" ]]; then
     return -- 0
 fi
 
+# Source files from `~/.profile.d`.
+
+shopt -s -- nullglob && _files=(${HOME}/.profile.d/*); shopt -u -- nullglob
+
+for _file in "${_files[@]}"; do
+    _bashrc="1" && source -- "$_file"; unset -- _bashrc
+done
+
 # Don't put duplicate lines and commands with leading spaces in the history.
 export -- HISTCONTROL="ignoredups:ignorespace"
 
@@ -64,14 +72,6 @@ eval -- "$(lesspipe.sh)"
 
 # Install Bash completions.
 source -- <%= Shellwords.escape((prefix + "etc/bash_completion").to_s) %>
-
-# Source files from `~/.profile.d`.
-
-shopt -s -- nullglob && _files=(${HOME}/.profile.d/*); shopt -u -- nullglob
-
-for _file in "${_files[@]}"; do
-    _bashrc="1" && source -- "$_file"; unset -- _bashrc
-done
 
 # Source `~/.bash_profile` if available.
 if [[ -f "${HOME}/.bash_profile" ]]; then

@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+# frozen_string_literal: true
+
 #
 # Copyright 2014 Roy Liu
 #
@@ -21,12 +22,12 @@ require "shellwords"
 
 class << self
   include Os::Bootstrap
+  include Os::Bootstrap::Homebrew
 end
 
 include_recipe "os-bootstrap::homebrew"
 
 recipe = self
-prefix = Pathname.new(node["os-bootstrap"]["prefix"])
 
 package "bash" do
   action :install
@@ -40,26 +41,26 @@ package "lesspipe" do
   action :install
 end
 
-template (owner_dir + ".bashrc").to_s do
+template owner_dir.join(".bashrc").to_s do
   source "bash-bashrc.erb"
   owner recipe.owner
   group recipe.owner_group
-  mode 0644
-  helper(:prefix) { prefix }
+  mode 0o644
+  helper(:prefix) { recipe.homebrew_prefix }
   action :create
 end
 
-template (owner_dir + ".bash_profile").to_s do
+template owner_dir.join(".bash_profile").to_s do
   source "bash-bash_profile.erb"
   owner recipe.owner
   group recipe.owner_group
-  mode 0644
-  helper(:prefix) { prefix }
+  mode 0o644
+  helper(:prefix) { recipe.homebrew_prefix }
   action :create
 end
 
 # Set the user's shell to the Bash installed by Homebrew.
 user owner do
-  shell (prefix + "bin/bash").to_s
+  shell recipe.homebrew_bin_dir.join("bash").to_s
   action :manage
 end
