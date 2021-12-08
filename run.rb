@@ -269,69 +269,29 @@ module Os
 
           touch magic_temp_file
 
+          label_pattern = Regexp.new("\\A\\* Label: (?<identifier>Command Line Tools.*)-(?<display_version>.+)\\z")
+
           begin
-            sh "softwareupdate", "-l"
-
-            package_name = nil
-
-            (0...6).each do |backoff|
-              begin
-                # After `softwareupdate` has run, look in the plist of recommended updates. Some sort of command-line
-                # tools package should be there.
-
-                xml = IO.popen(
-                    [
-                        "plutil", "-convert", "xml1", "-o", "-", "--",
-                        "/Library/Preferences/com.apple.SoftwareUpdate.plist"
-                    ]
-                ) do |io|
-                  io.read
+            identifier, display_version = IO.popen(["softwareupdate", "-l"]) { |io| io.read }.
+              split("\n").
+              map do |line|
+                if m = label_pattern.match(line)
+                  [m["identifier"], Gem::Version.new(m["display_version"])]
+                else
+                  nil
                 end
+              end.
+              select { |tuple| tuple }.
+              sort do |(_, l_version), (_, r_version)|
+                -(l_version <=> r_version)
+              end.
+              first
 
-                exit_status = $?.exitstatus
-
-                raise "`plutil` returned nonzero exit status #{exit_status}" \
-                  if exit_status != 0
-
-                # Create an XPath query for the package information.
-                doc = REXML::Document.new(xml)
-                package_name = doc.elements.to_a(
-                    "/plist" \
-                    "/dict" \
-                    "/key[text()=\"RecommendedUpdates\"]" \
-                    "/following::array[position()=1]" \
-                    "/dict[key[text()=\"Display Name\"]" \
-                    "/following::string[position()=1 and starts-with(text(), \"Command Line \")]]"
-                ).map do |node|
-                  [
-                      node.elements["key[text()=\"Identifier\"]/following::string[position()=1]/text()"],
-                      node.elements["key[text()=\"Display Version\"]/following::string[position()=1]/text()"]
-                  ]
-                end.sort do |lhs, rhs|
-                  -(lhs[1].to_s.to_f <=> rhs[1].to_s.to_f)
-                end.map do |identifier, display_version|
-                  "#{identifier}-#{display_version}"
-                end.first
-              rescue ArgumentError, SystemCallError, REXML::ParseException
-                package_name = nil
-              end
-
-              # Use an exponential backoff mechanism to account for the `softwareupdate` not writing to
-              # `/Library/Preferences/com.apple.SoftwareUpdate.plist`: That responsibility belongs to something else,
-              # probably a daemon.
-              if package_name
-                break
-              else
-                delay = 2 ** backoff
-
-                pp(:info, "Command-line tools package metadata not found: retrying in #{delay} seconds")
-
-                sleep delay
-              end
+            if !identifier
+              raise "Could not find the necessary metadata for installing the command-line tools package"
             end
 
-            raise "Could not find the necessary metadata for installing the command-line tools package" \
-              if !package_name
+            package_name = "#{identifier}-#{display_version}"
 
             pp(:info, "Install #{package_name} via `softwareupdate`")
 
