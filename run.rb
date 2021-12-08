@@ -523,29 +523,14 @@ EOS
         end
 
         namespace :command_line_tools do
-          minor_version = IO.popen(["sw_vers", "-productVersion"]) { |f| f.read }.
-              match("\\A(?:[1-9]+[0-9]*)\\.([1-9]+[0-9]*)\\.(?:[1-9]+[0-9]*)")[1].to_i
-
-          if minor_version < 15
-            clt_bom_file = Pathname.new("/System/Library/receipts/com.apple.pkg.CLTools_Executables.bom")
-            clt_plist_file = Pathname.new("/System/Library/receipts/com.apple.pkg.CLTools_Executables.plist")
-          else
-            clt_bom_file =
-                Pathname.new("/Library/Apple/System/Library/Receipts/com.apple.pkg.CLTools_Executables.bom")
-            clt_plist_file =
-                Pathname.new("/Library/Apple/System/Library/Receipts/com.apple.pkg.CLTools_Executables.plist")
-          end
+          clt_bom_file = Pathname.new("/Library/Apple/System/Library/Receipts/com.apple.pkg.CLTools_Executables.bom")
 
           file clt_bom_file do
             softwareupdate_install
           end
 
-          file clt_plist_file do
-            softwareupdate_install
-          end
-
           file_with_parent_directories installed_command_line_tools => [
-              clt_bom_file, clt_plist_file, installed_receipts_dir
+              clt_bom_file, installed_receipts_dir
           ] do
             as_user do
               touch installed_command_line_tools
