@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-#
+# frozen_string_literal: true
+
 # Copyright 2014 Roy Liu
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -22,13 +22,14 @@ require "shellwords"
 class << self
   include Os::Bootstrap
   include Os::Bootstrap::Rbenv
+  include Os::Bootstrap::Homebrew
 end
 
 include_recipe "os-bootstrap::homebrew"
 
 recipe = self
 prefix = Pathname.new(node["os-bootstrap"]["prefix"])
-rbenv_root = prefix + "var/rbenv"
+rbenv_root = prefix.join("var/rbenv")
 versions = node["os-bootstrap"]["rbenv"]["versions"]
 global_version = node["os-bootstrap"]["rbenv"]["global_version"]
 
@@ -67,28 +68,28 @@ package "ruby-build" do
 end
 
 directory "create `.profile.d` for #{recipe_full_name}" do
-  path (recipe.owner_dir + ".profile.d").to_s
+  path recipe.owner_dir.join(".profile.d").to_s
   owner recipe.owner
   group recipe.owner_group
-  mode 0755
+  mode 0o755
   action :create
 end
 
 # Install the Bash hook.
-template (owner_dir + ".profile.d/0000_rbenv.sh").to_s do
+template owner_dir.join(".profile.d/0000_rbenv.sh").to_s do
   source "bash-0000_rbenv.sh.erb"
   owner recipe.owner
   group recipe.owner_group
-  mode 0644
-  helper(:rbenv_root) { prefix + "var/rbenv" }
-  helper(:rbenv_bin_dir) { prefix + "opt/rbenv/bin" }
+  mode 0o644
+  helper(:rbenv_root) { prefix.join("var/rbenv") }
+  helper(:rbenv_bin_dir) { recipe.homebrew_prefix.join("opt/rbenv/bin") }
   action :create
 end
 
 directory rbenv_root.to_s do
   owner "root"
   group "admin"
-  mode 0775
+  mode 0o775
   action :create
 end
 
