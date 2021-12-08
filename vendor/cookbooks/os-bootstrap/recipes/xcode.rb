@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+# frozen_string_literal: true
+
 #
 # Copyright 2014-2017 Roy Liu
 #
@@ -20,21 +21,20 @@ require "uri"
 class << self
   include Chef::Mixin::ShellOut
   include Os::Bootstrap
+  include Os::Bootstrap::Homebrew
 end
 
 include_recipe "os-bootstrap::homebrew"
 
 recipe = self
-prefix = Pathname.new(node["os-bootstrap"]["prefix"])
-homebrew_dir = prefix + "Homebrew"
 xcode_url = node["os-bootstrap"]["xcode"]["url"]
 volume_dir = Pathname.new(node["os-bootstrap"]["volume_root"])
-caskroom_dir = prefix + "Caskroom"
-xcode_archive_file = Pathname.glob("#{volume_dir.to_s}/files/[Xx]code*.{dmg,xip}").last
-xcode_url ||= "file://#{URI.escape(xcode_archive_file.to_s)}" if xcode_archive_file && xcode_archive_file.file?
+caskroom_dir = homebrew_prefix.join("Caskroom")
+xcode_archive_file = Pathname.glob("#{volume_dir}/files/[Xx]code*.{dmg,xip}").last
+xcode_url ||= "file://#{URI.escape(xcode_archive_file.to_s)}" if xcode_archive_file&.file?
 cask_version_pattern = Regexp.new("[Xx]code([-_].+|)\\.(?:dmg|xip)")
 cask_version = (xcode_archive_file && cask_version_pattern.match(xcode_archive_file.basename.to_s)[1][1..-1]) ||
-    "latest"
+  "latest"
 
 # The `plist_file` LWRP needs Nokogiri's XML parsing and querying capabilities.
 chef_gem "install `nokogiri` for #{recipe_full_name}" do
@@ -47,22 +47,22 @@ require "nokogiri"
 
 # Don't generate resources if the download URL couldn't be inferred or the cask is already installed.
 if xcode_url
-  ["Library/Taps/os-bootstrap",
-   "Library/Taps/os-bootstrap/homebrew-xcode",
-   "Library/Taps/os-bootstrap/homebrew-xcode/Casks"].each do |dir_name|
-    directory (homebrew_dir + dir_name).to_s do
-      owner recipe.owner
-      group recipe.owner_group
-      mode 0755
-      action :create
-    end
-  end
+  ["os-bootstrap",
+   "os-bootstrap/homebrew-xcode",
+   "os-bootstrap/homebrew-xcode/Casks"].each do |dir_name|
+     directory (homebrew_taps_dir + dir_name).to_s do
+       owner recipe.owner
+       group recipe.owner_group
+       mode 0o755
+       action :create
+     end
+   end
 
-  template (homebrew_dir + "Library/Taps/os-bootstrap/homebrew-xcode/Casks/xcode.rb").to_s do
+  template homebrew_taps_dir.join("os-bootstrap/homebrew-xcode/Casks/xcode.rb").to_s do
     source "xcode-xcode.rb.erb"
     owner recipe.owner
     group recipe.owner_group
-    mode 0644
+    mode 0o644
     helper(:cask_version) { cask_version }
     helper(:xcode_url) { xcode_url }
     action :create
@@ -77,14 +77,14 @@ if xcode_url
   ruby_block "run Xcode postinstall" do
     block do
       xcode_cask_dir = caskroom_dir + "xcode/#{cask_version}"
-      xcode_app_dir = Pathname.glob("#{xcode_cask_dir.to_s}/Xcode*.app").first
+      xcode_app_dir = Pathname.glob("#{xcode_cask_dir}/Xcode*.app").first
 
       raise "An Xcode application bundle was not found in the cask staging directory #{xcode_app_dir.to_s.dump}" \
         if !(xcode_app_dir && xcode_app_dir.directory?)
 
       # Use `plutil` to read plists that are potentially in the binary format.
       xml = recipe.shell_out!("plutil", "-convert", "xml1", "-o", "-",
-                              "--", (xcode_app_dir + "Contents/Info.plist").to_s).stdout
+                              "--", xcode_app_dir.join("Contents/Info.plist").to_s).stdout
       doc = Nokogiri::XML::Document.parse(xml)
       xcode_version = doc.root.css("> dict > key[text()=\"CFBundleShortVersionString\"] + string").text
       major_version = xcode_version.split(".", -1)[0]
@@ -116,7 +116,7 @@ if xcode_url
         format :xml
         owner "root"
         group "wheel"
-        mode 0644
+        mode 0o644
         notifies :write, "log[Xcode license notice]", :immediately
         action :create
       end
@@ -124,7 +124,7 @@ if xcode_url
       # Set the active developer directory to the one embedded in the newly installed Xcode. This is the equivalent of
       # `xcode-select --switch`.
       recipe.link "/var/db/xcode_select_link" do
-        to (xcode_app_dir + "Contents/Developer").to_s
+        to xcode_app_dir.join("Contents/Developer").to_s
         owner "root"
         group "wheel"
         action :create

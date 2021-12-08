@@ -38,6 +38,16 @@ module ::Os
       def homebrew_executable
         @homebrew_executable ||= homebrew_bin_dir.join("brew")
       end
+
+      def homebrew_taps_dir
+        @homebrew_taps_dir ||= Pathname.new(
+          if !is_apple_silicon
+            homebrew_prefix.join("Homebrew/Library/Taps")
+          else
+            homebrew_prefix.join("Library/Taps")
+          end
+        )
+      end
     end
   end
 end
