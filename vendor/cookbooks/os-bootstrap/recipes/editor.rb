@@ -1,6 +1,6 @@
-# -*- coding: utf-8 -*-
-#
-# Copyright 2014 Roy Liu
+# frozen_string_literal: true
+
+# Copyright 2014-2021 Roy Liu
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
 # use this file except in compliance with the License. You may obtain a copy of
@@ -21,12 +21,12 @@ require "shellwords"
 
 class << self
   include Os::Bootstrap
+  include Os::Bootstrap::Homebrew
 end
 
 include_recipe "os-bootstrap::homebrew"
 
 recipe = self
-prefix = Pathname.new(node["os-bootstrap"]["prefix"])
 editor = node["os-bootstrap"]["user"]["editor"]
 terminal_command_arguments = []
 
@@ -40,19 +40,19 @@ when "emacs"
     action :install
   end
 
-  template (owner_dir + ".emacs").to_s do
+  template owner_dir.join(".emacs").to_s do
     source "editor-.emacs.erb"
     owner recipe.owner
     group recipe.owner_group
-    mode 0644
+    mode 0o644
     action :create
   end
 
   # Just in case you created this first as root with `sudo -- emacs`.
-  directory (owner_dir + ".emacs.d").to_s do
+  directory owner_dir.join(".emacs.d").to_s do
     owner recipe.owner
     group recipe.owner_group
-    mode 0700
+    mode 0o700
     action :create
   end
 
@@ -62,11 +62,11 @@ when "vim"
     action :install
   end
 
-  template (owner_dir + ".vimrc").to_s do
+  template owner_dir.join(".vimrc").to_s do
     source "editor-.vimrc.erb"
     owner recipe.owner
     group recipe.owner_group
-    mode 0644
+    mode 0o644
     action :create
   end
 else
@@ -74,20 +74,20 @@ else
 end
 
 directory "create `.profile.d` for #{recipe_full_name}" do
-  path (recipe.owner_dir + ".profile.d").to_s
+  path recipe.owner_dir.join(".profile.d").to_s
   owner recipe.owner
   group recipe.owner_group
-  mode 0755
+  mode 0o755
   action :create
 end
 
 # Install the Bash hook.
-template (owner_dir + ".profile.d/0002_editor.sh").to_s do
+template owner_dir.join(".profile.d/0002_editor.sh").to_s do
   source "bash-0002_editor.sh.erb"
   owner recipe.owner
   group recipe.owner_group
-  mode 0644
-  helper(:prefix) { prefix }
+  mode 0o644
+  helper(:prefix) { recipe.homebrew_prefix }
   helper(:editor) { editor }
   helper(:arguments) { terminal_command_arguments }
   action :create
