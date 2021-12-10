@@ -44,9 +44,6 @@ plist_file "Apple Global Domain" do
   # Enable or disable "Shake mouse pointer to locate" behavior.
   set "CGDisableCursorLocationMagnification", !prefs["global"]["shake_mouse_pointer_to_locate"]
 
-  # Use the function keys as standard function keys.
-  set "com.apple.keyboard.fnState", prefs["global"]["use_standard_function_keys"]
-
   # Set a low double click threshold.
   set "com.apple.mouse.doubleClickThreshold", prefs["global"]["double_click_threshold"]
 

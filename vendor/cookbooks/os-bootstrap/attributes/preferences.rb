@@ -42,7 +42,6 @@ default["os-bootstrap"]["preferences"]["global"]["shake_mouse_pointer_to_locate"
 default["os-bootstrap"]["preferences"]["global"]["show_all_file_extensions"] = true
 default["os-bootstrap"]["preferences"]["global"]["show_all_files"] = true
 default["os-bootstrap"]["preferences"]["global"]["ui_audio_enabled"] = 1
-default["os-bootstrap"]["preferences"]["global"]["use_standard_function_keys"] = true
 default["os-bootstrap"]["preferences"]["hi_toolbox"]["apple_dictation_auto_enable"] = 0
 default["os-bootstrap"]["preferences"]["screen_capture"]["enable_drop_shadows"] = false
 default["os-bootstrap"]["preferences"]["symbolic_hotkeys"]["enable_desktop_1"] = false
