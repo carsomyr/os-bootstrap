@@ -20,6 +20,7 @@ if [[ -n "$_bashrc" ]] || [[ -n "$PS1" ]]; then
     fi
 else
     eval -- "$(PATH="" /usr/libexec/path_helper)"
+    PATH=<%= Shellwords.escape(prefix.join("bin").to_s) -%>"${PATH:+":${PATH}"}"
 
     # Are we running in `launchd`? Try to start a daemonized `gpg-agent`.
     if { ! gpg-agent 2> /dev/null; }; then
