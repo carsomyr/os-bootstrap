@@ -1,0 +1,5 @@
+---
+by_mac_address:
+  "00:00:00:00:00:00":
+    name: Harry's MacBook Pro
+    local_hostname: harrys-macbook-pro
