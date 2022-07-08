@@ -511,6 +511,9 @@ EOS
           file installed_rbenv_repo_dir do
             create_recursive_writeable_directories(rbenv_dir)
 
+            # The user must own this directory so as not to trip Git's `safe.directory` protections.
+            chown_R ENV["SUDO_USER"], nil, rbenv_dir
+
             touch installed_rbenv_repo_dir, verbose: false
           end
 
@@ -629,6 +632,9 @@ EOS
 
           file installed_user_repo_dir do
             create_recursive_writeable_directories(repo_dir)
+
+            # The user must own this directory so as not to trip Git's `safe.directory` protections.
+            chown_R ENV["SUDO_USER"], nil, repo_dir
 
             touch installed_user_repo_dir, verbose: false
           end
@@ -773,9 +779,9 @@ case "$1" in
     "")
         cd -- #{Shellwords.escape(repo_dir.to_s)}
 
-        sha1_old=$(git rev-parse --verify HEAD)
+        sha1_old=$(#{sudo_user_command} -- git rev-parse --verify HEAD)
         #{sudo_user_command} -- git fetch -q
-        sha1_new=$(git rev-parse --verify "HEAD@{upstream}")
+        sha1_new=$(#{sudo_user_command} -- git rev-parse --verify "HEAD@{upstream}")
 
         # Compare the old and new SHA-1 hashes and only take action if they are different.
         if [[ "$sha1_old" != "$sha1_new" ]]; then
