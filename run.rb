@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# Copyright 2014-2021 Roy Liu
+# Copyright 2014-2022 Roy Liu
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
 # use this file except in compliance with the License. You may obtain a copy of
@@ -503,7 +503,6 @@ EOS
 
         namespace :rbenv do
           ruby_build_dir = rbenv_dir.join("plugins/ruby-build")
-          ruby_build_definition = ruby_build_dir.join("share/ruby-build/#{rbenv_version}")
           installed_rbenv_repo_dir = receipts_dir.join("installed-rbenv-repo-dir")
           installed_rbenv_repo = receipts_dir.join("installed-rbenv-repo")
           installed_ruby_build_repo = receipts_dir.join("installed-ruby-build-repo")
@@ -557,27 +556,17 @@ EOS
                    end
 
                 sh "git", "checkout", "master"
+                # This is the last known compiling version of OpenSSL, version 1.1.1n. The newer 1.1.1q version is
+                # broken: https://github.com/rbenv/ruby-build/discussions/1990.
+                sh "git", "reset", "--hard", "v20220630"
               end
 
               touch installed_ruby_build_repo
             end
           end
 
-          desc "Updates the ruby-build repository"
-          file ruby_build_definition => installed_ruby_build_repo do
-            pp(:info, "Update the ruby-build repository")
-
-            as_user do
-              cd ruby_build_dir do
-                sh "git", "pull"
-              end
-
-              touch ruby_build_definition
-            end
-          end
-
           desc "Installs the default rbenv Ruby"
-          file_with_parent_directories installed_rbenv => [installed_ruby_build_repo, ruby_build_definition] do
+          file_with_parent_directories installed_rbenv => [installed_ruby_build_repo] do
             pp(:info, "Install rbenv Ruby version #{rbenv_version}")
 
             as_user do
