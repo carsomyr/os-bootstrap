@@ -162,7 +162,7 @@ module Os
     module RakeHelpers
       module InstanceMethods
         # Runs the given block as a particular user and group.
-        def as_user(user = ENV["SUDO_USER"], group = nil, &block)
+        def as_user(user = ENV.fetch("SUDO_USER", nil), group = nil, &block)
           _, exit_status = Process.waitpid2(fork do
             Process.gid = Process.egid = Etc.getgrnam(group).gid \
               if group
@@ -321,19 +321,20 @@ module Os
           # Set special values for certain rbenv environment variables, run the given block, and restore them
           # afterwards.
           ENV["RBENV_ROOT"], ENV["RBENV_DIR"], ENV["RBENV_HOOK_PATH"], ENV["RBENV_VERSION"] =
-            [ENV["RBENV_ROOT"], ENV["RBENV_DIR"], ENV["RBENV_HOOK_PATH"], ENV["RBENV_VERSION"]].tap do
-              ENV["RBENV_ROOT"] = rbenv_root.to_s
-              ENV["RBENV_DIR"] = nil
-              ENV["RBENV_HOOK_PATH"] = nil
-              ENV["RBENV_VERSION"] = nil
-              block.call(rbenv_root.join("bin/rbenv").to_s)
-            end
+            [ENV.fetch("RBENV_ROOT", nil), ENV.fetch("RBENV_DIR", nil), ENV.fetch("RBENV_HOOK_PATH", nil),
+             ENV.fetch("RBENV_VERSION", nil)].tap do
+               ENV["RBENV_ROOT"] = rbenv_root.to_s
+               ENV["RBENV_DIR"] = nil
+               ENV["RBENV_HOOK_PATH"] = nil
+               ENV["RBENV_VERSION"] = nil
+               block.call(rbenv_root.join("bin/rbenv").to_s)
+             end
         end
 
         # Sets up a special environment for Git's SSH protocol.
         def git_ssh(git_ssh_executable, &block)
           # Set environment variables that direct Git to use the provided SSH wrapper, and restore them afterwards.
-          ENV["SSH_AUTH_SOCK"], ENV["GIT_SSH"] = [ENV["SSH_AUTH_SOCK"], ENV["GIT_SSH"]].tap do
+          ENV["SSH_AUTH_SOCK"], ENV["GIT_SSH"] = [ENV.fetch("SSH_AUTH_SOCK", nil), ENV.fetch("GIT_SSH", nil)].tap do
             ENV["SSH_AUTH_SOCK"] = nil
             ENV["GIT_SSH"] = git_ssh_executable.to_s
             block.call
@@ -511,7 +512,7 @@ EOS
             create_recursive_writeable_directories(rbenv_dir)
 
             # The user must own this directory so as not to trip Git's `safe.directory` protections.
-            chown_R ENV["SUDO_USER"], nil, rbenv_dir
+            chown_R ENV.fetch("SUDO_USER", nil), nil, rbenv_dir
 
             touch installed_rbenv_repo_dir, verbose: false
           end
@@ -526,10 +527,12 @@ EOS
               cd rbenv_dir do
                 sh "git", "init"
 
-                sh "git", "remote", "add", "-f", "-m", "master", "--", "origin",
+                sh "git", "remote", "add", "-m", "master", "--", "origin",
                    "https://github.com/rbenv/rbenv" do
                      # Swallow a nonzero exit status.
                    end
+
+                sh "git", "fetch", "--", "origin"
 
                 sh "git", "checkout", "master"
               end
@@ -550,10 +553,12 @@ EOS
               cd ruby_build_dir do
                 sh "git", "init"
 
-                sh "git", "remote", "add", "-f", "-m", "master", "--", "origin",
+                sh "git", "remote", "add", "-m", "master", "--", "origin",
                    "https://github.com/rbenv/ruby-build" do
                      # Swallow a nonzero exit status.
                    end
+
+                sh "git", "fetch", "--", "origin"
 
                 sh "git", "checkout", "master"
                 # This is the last known compiling version of OpenSSL, version 1.1.1n. The newer 1.1.1q version is
@@ -623,7 +628,7 @@ EOS
             create_recursive_writeable_directories(repo_dir)
 
             # The user must own this directory so as not to trip Git's `safe.directory` protections.
-            chown_R ENV["SUDO_USER"], nil, repo_dir
+            chown_R ENV.fetch("SUDO_USER", nil), nil, repo_dir
 
             touch installed_user_repo_dir, verbose: false
           end
@@ -639,9 +644,11 @@ EOS
                 cd repo_dir do
                   sh "git", "init"
 
-                  sh "git", "remote", "add", "-f", "-m", repo_branch, "--", "origin", repo_url do
+                  sh "git", "remote", "add", "-m", repo_branch, "--", "origin", repo_url do
                     # Swallow a nonzero exit status.
                   end
+
+                  sh "git", "fetch", "--", "origin"
 
                   sh "git", "checkout", repo_branch
                 end
@@ -697,7 +704,7 @@ EOS
           lines.push(["-j", user_data_dir.join("chef/attributes.json").to_s]) \
             if chef_attribute_path
 
-          sudo_user_command = "sudo -E -u #{Shellwords.escape(ENV["SUDO_USER"])}"
+          sudo_user_command = "sudo -E -u #{Shellwords.escape(ENV.fetch("SUDO_USER", nil))}"
 
           chef_client_command = lines.map do |args|
             args.map do |arg|
