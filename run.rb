@@ -986,7 +986,9 @@ if __FILE__ == $PROGRAM_NAME
   raise "Invalid Git repository URL #{repo_url.dump}" \
     if !m
 
-  opts[:repo_dir] = prefix.join("var/user_data/git/#{m[1]}-#{Digest::SHA1.hexdigest(repo_url)[0...7]}")
+  opts[:repo_dir] = prefix.join(
+    "var/user_data/git/#{m[1]}-#{Digest::SHA1.hexdigest("#{repo_url}##{repo_branch}")[0...7]}"
+  )
 
   pp(:xml_heading, <<EOS
 Hello from the OS Bootstrap installer!
