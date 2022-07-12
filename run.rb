@@ -207,7 +207,7 @@ module Os
           raise "Target must be a directory" \
             if target.exist?
 
-          parent_task = recursive_writeable_directories target.parent => deps
+          parent_task = recursive_writeable_directories target.parent
 
           task_deps = if parent_task
             deps + [parent_task]
@@ -249,7 +249,7 @@ module Os
         def file_with_parent_directories(target_deps, &block)
           target, deps = normalize_target_deps(target_deps)
 
-          parent_task = recursive_writeable_directories target.parent => deps
+          parent_task = recursive_writeable_directories target.parent
 
           task_deps = if parent_task
             deps + [parent_task]
@@ -425,9 +425,9 @@ module Os
         chef_config_file = repo_dir.join("config/client.rb")
         installed_user = receipts_dir.join("installed-user-#{repo_dir.basename}")
 
-        file installed_receipts_dir do
-          create_recursive_writeable_directories(receipts_dir)
+        task :always_run
 
+        file_with_parent_directories installed_receipts_dir do
           touch installed_receipts_dir, verbose: false
         end
 
@@ -508,9 +508,7 @@ EOS
           installed_rbenv_repo = receipts_dir.join("installed-rbenv-repo")
           installed_ruby_build_repo = receipts_dir.join("installed-ruby-build-repo")
 
-          file installed_rbenv_repo_dir do
-            create_recursive_writeable_directories(rbenv_dir)
-
+          file_with_parent_directories installed_rbenv_repo_dir do
             # The user must own this directory so as not to trip Git's `safe.directory` protections.
             chown_R ENV.fetch("SUDO_USER", nil), nil, rbenv_dir
 
@@ -624,9 +622,7 @@ EOS
             installed_attribute_deps = []
           end
 
-          file installed_user_repo_dir do
-            create_recursive_writeable_directories(repo_dir)
-
+          file_with_parent_directories installed_user_repo_dir do
             # The user must own this directory so as not to trip Git's `safe.directory` protections.
             chown_R ENV.fetch("SUDO_USER", nil), nil, repo_dir
 
@@ -694,7 +690,9 @@ EOS
 
         desc "Writes an executable to #{os_bootstrap_executable.to_s.dump}"
         file_with_parent_directories os_bootstrap_executable => [
-          installed_rbenv, installed_command_line_tools, installed_user, git_ssh_executable
+          installed_rbenv, installed_command_line_tools, installed_user, git_ssh_executable,
+          # We need to always run this because the user repo URL may change.
+          :always_run
         ] do
           rbenv_executable = rbenv_dir.join("bin/rbenv")
 
@@ -816,7 +814,7 @@ EOS
             end
 
             # Assign executable bits.
-            chmod "+x", os_bootstrap_executable
+            chmod "+x", os_bootstrap_executable, verbose: false
           end
         end
       end
