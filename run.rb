@@ -859,7 +859,7 @@ if __FILE__ == $PROGRAM_NAME
     prefix: Pathname.new("/usr/local"),
     config_dir: Pathname.new("/Volumes/User Data"),
     rbenv_dir: Pathname.new("/usr/local/var/rbenv"),
-    rbenv_version: "2.7.6",
+    rbenv_version: "2.7.7",
     repo_url: "https://github.com/carsomyr/os-bootstrap",
     repo_branch: "main",
     ssh_key_file: nil,
