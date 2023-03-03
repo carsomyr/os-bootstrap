@@ -428,6 +428,8 @@ module Os
         task :always_run
 
         file_with_parent_directories installed_receipts_dir do
+          create_recursive_writeable_directories(receipts_dir)
+
           touch installed_receipts_dir, verbose: false
         end
 
@@ -509,6 +511,8 @@ EOS
           installed_ruby_build_repo = receipts_dir.join("installed-ruby-build-repo")
 
           file_with_parent_directories installed_rbenv_repo_dir do
+            create_recursive_writeable_directories(rbenv_dir)
+
             # The user must own this directory so as not to trip Git's `safe.directory` protections.
             chown_R ENV.fetch("SUDO_USER", nil), nil, rbenv_dir
 
@@ -623,6 +627,8 @@ EOS
           end
 
           file_with_parent_directories installed_user_repo_dir do
+            create_recursive_writeable_directories(repo_dir)
+
             # The user must own this directory so as not to trip Git's `safe.directory` protections.
             chown_R ENV.fetch("SUDO_USER", nil), nil, repo_dir
 
