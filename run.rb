@@ -563,9 +563,6 @@ EOS
                 sh "git", "fetch", "--", "origin"
 
                 sh "git", "checkout", "master"
-                # This is the last known compiling version of OpenSSL, version 1.1.1n. The newer 1.1.1q version is
-                # broken: https://github.com/rbenv/ruby-build/discussions/1990.
-                sh "git", "reset", "--hard", "v20220630"
               end
 
               touch installed_ruby_build_repo
