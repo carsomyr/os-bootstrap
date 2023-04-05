@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Copyright 2014-2016 Roy Liu
+# Copyright 2014-2023 Roy Liu
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
 # use this file except in compliance with the License. You may obtain a copy of
@@ -14,12 +14,17 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-include_recipe "os-bootstrap::bash"
-include_recipe "os-bootstrap::git"
-include_recipe "os-bootstrap::homebrew"
-include_recipe "os-bootstrap::machine"
-include_recipe "os-bootstrap::preferences"
-include_recipe "os-bootstrap::ssh"
-include_recipe "os-bootstrap::xcode"
-# User-provided recipe inclusions.
-include_recipe "os-bootstrap::includes"
+class << self
+  include Os::Bootstrap
+end
+
+# Include recipes specified by the user.
+
+includes = node["os-bootstrap"]["includes"]
+
+includes = [includes] \
+  if includes.is_a?(String)
+
+includes.each do |recipe_name|
+  include_recipe infer_recipe_name(recipe_name)
+end
