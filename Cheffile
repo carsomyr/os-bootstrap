@@ -23,5 +23,7 @@ cookbook "plist",
          path: "vendor/cookbooks/plist"
 cookbook "ruby_rbenv",
          github: "chef-rbenv/ruby_rbenv"
+# We can't upgrade beyond version 5.3.6 because Chef major version 14 is too old.
+cookbook "homebrew", "<= 5.3.6"
 # There seems to be a problem with version 5.4.7.
 cookbook "sudo", "< 5.4.7"
