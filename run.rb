@@ -604,7 +604,7 @@ EOS
               pp(:info, "Write the JSONified Chef attribute file to #{installed_attribute_json_file}")
 
               as_user do
-                installed_attribute_json_file.open("wb") { |f| f.write(JSON.generate(attributes)) }
+                installed_attribute_json_file.open("wb") { |f| f.write(JSON.pretty_generate(attributes)) }
               end
             end
 
