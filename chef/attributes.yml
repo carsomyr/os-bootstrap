@@ -1,0 +1,4 @@
+---
+run_list:
+  - os-bootstrap
+  - os-bootstrap::rbenv
