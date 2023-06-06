@@ -1,0 +1,3 @@
+---
+- os-bootstrap
+- os-bootstrap::rbenv
