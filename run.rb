@@ -373,8 +373,16 @@ module Os
 
               attribute_files += child_attribute_files
             end
-          elsif path.file? && path.extname == ".yml"
+          elsif path.file? && [".yml", ".yaml"].include?(path.extname)
             attributes = YAML.safe_load(path.open("rb", &:read)) || {}
+
+            child_key = path.sub_ext("").basename.to_s
+
+            # If the attribute file doesn't start with `_` to denote "self", derive the key from the child's basename.
+            if !child_key.start_with?("_")
+              attributes = {child_key => attributes}
+            end
+
             attribute_files.push(path)
           end
 
