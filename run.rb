@@ -775,7 +775,7 @@ PATH=#{Shellwords.escape(rbenv_dir.join("shims").to_s)}"${PATH:+":${PATH}"}"
 unset -- SSH_AUTH_SOCK
 
 # Explicitly set the `RBENV_VERSION` environment variable to override any local versions set in `.ruby-version` files.
-export -- RBENV_VERSION=$(rbenv global)
+export -- RBENV_VERSION=#{Shellwords.escape(rbenv_version)}
 
 # Direct Git to use the provided SSH wrapper instead of standard `ssh`.
 export -- GIT_SSH=#{Shellwords.escape(git_ssh_executable.to_s)}
@@ -864,7 +864,8 @@ if __FILE__ == $PROGRAM_NAME
     prefix: Pathname.new("/usr/local"),
     config_dir: Pathname.new("/Volumes/User Data"),
     rbenv_dir: Pathname.new("/usr/local/var/rbenv"),
-    rbenv_version: "2.7.7",
+    # This must be held down below major version 3 because Chef is dead.
+    rbenv_version: "2.7.8",
     repo_url: "https://github.com/carsomyr/os-bootstrap",
     repo_branch: "main",
     ssh_key_file: nil,
