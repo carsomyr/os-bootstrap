@@ -50,6 +50,10 @@ plist_file "Apple Global Domain" do
   # Play a sound and visual effect when the volume is changed.
   set "com.apple.sound.uiaudio.enabled", prefs["global"]["ui_audio_enabled"]
 
+  # Don't substitute dashes or quotes by default to prevent nasty surprises when copy-and-pasting.
+  set "NSAutomaticDashSubstitutionEnabled", prefs["global"]["substitute_dashes"]
+  set "NSAutomaticQuoteSubstitutionEnabled", prefs["global"]["substitute_quotes"]
+
   # Set mouse and trackpad acceleration; `nil` to disable.
   pointer_acceleration = prefs["global"]["pointer_acceleration"]
 
