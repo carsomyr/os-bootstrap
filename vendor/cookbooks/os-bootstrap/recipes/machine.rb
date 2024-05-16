@@ -24,6 +24,8 @@ end
 chef_gem "install `nokogiri` for #{recipe_full_name}" do
   package_name "nokogiri"
   compile_time true
+  # Unfortunately we're stuck on an older version because anything newer requires Ruby >= 3.0.
+  version "1.15.5"
   action :install
 end
 

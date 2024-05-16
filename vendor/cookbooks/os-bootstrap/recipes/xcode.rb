@@ -40,6 +40,8 @@ cask_version = (xcode_archive_file && cask_version_pattern.match(xcode_archive_f
 chef_gem "install `nokogiri` for #{recipe_full_name}" do
   package_name "nokogiri"
   compile_time true
+  # Unfortunately we're stuck on an older version because anything newer requires Ruby >= 3.0.
+  version "1.15.5"
   action :install
 end
 
