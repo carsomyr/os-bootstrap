@@ -89,9 +89,12 @@ if xcode_url
       doc = Nokogiri::XML::Document.parse(xml)
       xcode_version = doc.root.css("> dict > key[text()=\"CFBundleShortVersionString\"] + string").text
       major_version = xcode_version.split(".", -1)[0]
+      latest_license_version = "EA1863"
 
       case major_version
-      when "11", "12", "13", "14"
+      when "16"
+        license_version = latest_license_version
+      when "11", "12", "13", "14", "15"
         license_version = "EA1647"
       when "9", "10"
         license_version = "EA1478"
@@ -104,7 +107,8 @@ if xcode_url
       when "5"
         license_version = "EA1057"
       else
-        raise "Unsupported Xcode major version #{major_version}"
+        # Default sketchily to the latest license version.
+        license_version = latest_license_version
       end
 
       # "Accept" the Xcode license by creating a magic plist file populated with the EULA and Xcode versions.
