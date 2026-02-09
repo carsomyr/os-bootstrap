@@ -89,11 +89,13 @@ if xcode_url
       doc = Nokogiri::XML::Document.parse(xml)
       xcode_version = doc.root.css("> dict > key[text()=\"CFBundleShortVersionString\"] + string").text
       major_version = xcode_version.split(".", -1)[0]
-      latest_license_version = "EA1863"
+      latest_license_version = "EA1910"
 
       case major_version
-      when "16"
+      when "26"
         license_version = latest_license_version
+      when "16"
+        license_version = "EA1863"
       when "11", "12", "13", "14", "15"
         license_version = "EA1647"
       when "9", "10"
