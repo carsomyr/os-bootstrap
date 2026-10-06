@@ -49,7 +49,8 @@ require "nokogiri"
 
 # Don't generate resources if the download URL couldn't be inferred or the cask is already installed.
 if xcode_url
-  ["os-bootstrap",
+  ["",
+   "os-bootstrap",
    "os-bootstrap/homebrew-xcode",
    "os-bootstrap/homebrew-xcode/Casks"].each do |dir_name|
      directory (homebrew_taps_dir + dir_name).to_s do
