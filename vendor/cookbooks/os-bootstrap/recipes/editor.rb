@@ -34,6 +34,14 @@ case editor
 when "emacs"
   homebrew_tap "d12frosted/emacs-plus" do
     action :tap
+    notifies :run, "execute[`brew trust -- d12frosted/emacs-plus`]", :immediately
+  end
+
+  execute "`brew trust -- d12frosted/emacs-plus`" do
+    command [recipe.homebrew_executable.to_s, "trust", "--", "d12frosted/emacs-plus"]
+    returns 0
+    user recipe.owner
+    action :nothing
   end
 
   package "emacs-plus" do

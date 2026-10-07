@@ -68,6 +68,14 @@ if xcode_url
     helper(:cask_version) { cask_version }
     helper(:xcode_url) { xcode_url }
     action :create
+    notifies :run, "execute[`brew trust -- os-bootstrap/xcode`]", :immediately
+  end
+
+  execute "`brew trust -- os-bootstrap/xcode`" do
+    command [recipe.homebrew_executable.to_s, "trust", "--", "os-bootstrap/xcode"]
+    returns 0
+    user recipe.owner
+    action :nothing
   end
 
   homebrew_cask "xcode" do
