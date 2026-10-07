@@ -55,13 +55,6 @@ cask_resource_class.action_class.send(:prepend, Module.new do
       kind_of: String
     )
 
-    # Add the `--no-quarantine` option to all actions.
-    new_resource.set_or_return(
-      :options,
-      Shellwords.shelljoin(Shellwords.split(new_resource.options || "").push("--no-quarantine").uniq),
-      kind_of: String
-    )
-
     # Check whether the version as specified in the cask file exists. This is in distinction to the current code, which
     # checks whether *some* version of the cask exists. Doing enables the resource `update` action in conjunction with
     # the `brew update && brew upgrade brew-cask` workflow.
@@ -76,7 +69,7 @@ cask_resource_class.action_class.send(:prepend, Module.new do
       if new_resource.can_update
         execute "updating cask #{new_resource.name}" do
           command [
-            recipe.homebrew_executable.to_s, "install", "--cask", *Shellwords.split(new_resource.options),
+            recipe.homebrew_executable.to_s, "install", "--cask", *Shellwords.split(new_resource.options || ""),
             "--", new_resource.name
           ]
           user recipe.owner

@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
-#
-# Copyright 2014-2017 Roy Liu
+# Copyright 2014-2026 Roy Liu
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
 # use this file except in compliance with the License. You may obtain a copy of
@@ -90,11 +89,12 @@ if xcode_url
       doc = Nokogiri::XML::Document.parse(xml)
       xcode_version = doc.root.css("> dict > key[text()=\"CFBundleShortVersionString\"] + string").text
       major_version = xcode_version.split(".", -1)[0]
-      latest_license_version = "EA1910"
 
       case major_version
+      when "27"
+        license_version = "EA2002"
       when "26"
-        license_version = latest_license_version
+        license_version = "EA1910"
       when "16"
         license_version = "EA1863"
       when "11", "12", "13", "14", "15"

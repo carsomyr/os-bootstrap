@@ -29,6 +29,10 @@ cask "xcode" do
     next \
       if !xcode_app_dir
 
+    system_command "xattr",
+                   args: ["-r", "-s", "-d", "com.apple.quarantine", "--", xcode_app_dir.to_s],
+                   sudo: true
+
     appdir.mkpath
 
     FileUtils.symlink(xcode_app_dir, appdir + xcode_app_dir.basename)
