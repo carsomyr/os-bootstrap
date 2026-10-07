@@ -60,15 +60,18 @@ plist_file "Apple Global Domain" do
   pointer_acceleration = prefs["global"]["pointer_acceleration"]
 
   if pointer_acceleration
-    set "com.apple.mouse.scaling", pointer_acceleration
+    set "com.apple.mouse.linear", !!pointer_acceleration
     set "com.apple.trackpad.scaling", pointer_acceleration
   else
-    set "com.apple.mouse.scaling", -1.0
+    set "com.apple.mouse.linear", !pointer_acceleration
     set "com.apple.trackpad.scaling", -1.0
   end
 
   format :binary
   action :create
+
+  # Some of these changes require a reload by `cfprefsd`.
+  notifies :run, "execute[`killall -- cfprefsd`]", :immediately
 end
 
 plist_file "com.apple.ActivityMonitor" do
@@ -273,6 +276,12 @@ plist_file "com.apple.systempreferences" do
 
   format :binary
   action :create
+end
+
+execute "`killall -- cfprefsd`" do
+  command ["killall", "--", "cfprefsd"]
+  returns [0, 1]
+  action :nothing
 end
 
 # Make sure to also kill `cfprefsd` along with the desired target, as it is the daemon that maintains cached version of
