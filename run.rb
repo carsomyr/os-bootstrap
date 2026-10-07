@@ -302,14 +302,14 @@ module Os
         end
 
         # Installs the given gem.
-        def gem_install(rbenv_root, gem)
-          pp(:info, "Install the `#{gem}` gem")
+        def gem_install(rbenv_root, *gem_specs)
+          pp(:info, "Install #{gem_specs.join(", ")}")
 
           as_user do
             # Change the directory to avoid picking up any stray `.ruby-version` files.
             cd Pathname.new("/") do
               rbenv(rbenv_root) do |rbenv|
-                sh rbenv, "exec", "gem", "install", "--no-document", gem
+                sh rbenv, "exec", "gem", "install", "--no-document", *gem_specs
                 sh rbenv, "rehash"
               end
             end
@@ -421,6 +421,7 @@ module Os
       repo_url = opts[:repo_url]
       repo_branch = opts[:repo_branch]
       repo_dir = opts[:repo_dir]
+      gem_dependencies = opts[:gem_dependencies]
       os_bootstrap_executable = prefix.join("bin/os-bootstrap")
 
       namespace :os_bootstrap do
@@ -599,6 +600,7 @@ EOS
           installed_attribute_yaml_file = user_data_dir.join("chef/attributes.yml")
           installed_user_repo_dir = receipts_dir.join("installed-user-repo-dir-#{repo_dir.basename}")
           installed_user_repo = receipts_dir.join("installed-user-repo-#{repo_dir.basename}")
+          installed_gem_dependencies = receipts_dir.join("installed-gem-dependencies")
           cheffile_lock = repo_dir.join("Cheffile.lock")
           chef_client_executable = rbenv_dir.join("versions/#{rbenv_version}/bin/chef-client")
           librarian_chef_executable = rbenv_dir.join("versions/#{rbenv_version}/bin/librarian-chef")
@@ -671,11 +673,17 @@ EOS
             end
           end
 
-          file chef_client_executable => [installed_rbenv] do
+          file installed_gem_dependencies => [installed_rbenv] do
+            gem_install(rbenv_dir, *gem_dependencies)
+
+            touch installed_gem_dependencies
+          end
+
+          file chef_client_executable => [installed_rbenv, installed_gem_dependencies] do
             gem_install(rbenv_dir, "chef:< 15")
           end
 
-          file librarian_chef_executable => [installed_rbenv] do
+          file librarian_chef_executable => [installed_rbenv, installed_gem_dependencies] do
             gem_install(rbenv_dir, "librarian-chef")
           end
 
@@ -870,7 +878,20 @@ if __FILE__ == $PROGRAM_NAME
     repo_branch: "main",
     ssh_key_file: nil,
     chef_attribute_path: nil,
-    verbose: false
+    verbose: false,
+    # This library is built upon an old, rickety pile of dependencies that now need to be constrained so that they work
+    # against an old version of Ruby.
+    gem_dependencies: [
+      "ffi:<= 1.15.5",
+      "ffi-yajl:<= 2.6.0",
+      "minitar:<= 0.12.1",
+      "mixlib-log:<= 3.1.2.1",
+      "mixlib-archive:<= 1.1.7",
+      "mixlib-shellout:<= 3.3.8",
+      "multi_json:<= 1.15.0",
+      "public_suffix:<= 5.1.1",
+      "rspec-its:<= 1.3.1",
+    ]
   }
 
   user_opts = {}
